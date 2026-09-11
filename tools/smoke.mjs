@@ -214,6 +214,36 @@ async function main() {
   const levelShot = await cdp.send("Page.captureScreenshot", { format: "png" });
   writeFileSync(".smoke/level.png", Buffer.from(levelShot.data, "base64"));
 
+  // Prove the AI shade's rig and clips are actually bound: a bone quaternion
+  // must change while the idle clip plays.
+  const boneExpr = `(() => {
+    const r = window.umbra.renderer;
+    const views = [...r.shadeRenderer.views.values()];
+    const v = views[0];
+    if (!v) return { error: 'no shade view' };
+    let bone = null;
+    v.root.traverse((o) => { if (!bone && o.isBone && o.name === 'Spine') bone = o; });
+    let skinned = 0;
+    v.root.traverse((o) => { if (o.isSkinnedMesh) skinned++; });
+    return {
+      mixer: !!v.mixer,
+      idle: !!v.idleAction,
+      walk: !!v.walkAction,
+      skinned,
+      bone: bone ? bone.quaternion.toArray().map((n) => +n.toFixed(4)) : null,
+    };
+  })()`;
+  const rigA = await evaluate(boneExpr);
+  await delay(900);
+  const rigB = await evaluate(boneExpr);
+  const models = {
+    ...rigB,
+    boneAnimated:
+      Array.isArray(rigA.bone) &&
+      Array.isArray(rigB.bone) &&
+      JSON.stringify(rigA.bone) !== JSON.stringify(rigB.bone),
+  };
+
   // Level 001's solution is S → S (sun south twice).
   await key("ArrowDown");
   await delay(850);
@@ -326,6 +356,14 @@ async function main() {
     framing.push(frame);
   }
 
+  // Targeted screenshots for the stones and eclipse chapters.
+  for (const [index, name] of [[13, "stones"], [15, "eclipse"]]) {
+    await evaluate(`window.umbra.startLevel(${index})`);
+    await delay(800);
+    const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
+    writeFileSync(`.smoke/${name}.png`, Buffer.from(shot.data, "base64"));
+  }
+
   // Finale screenshot.
   await evaluate(`window.umbra.startLevel(17)`);
   await delay(700);
@@ -347,6 +385,7 @@ async function main() {
         info,
         title,
         started,
+        models,
         afterOne,
         solved,
         navigation,

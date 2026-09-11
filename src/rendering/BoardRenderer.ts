@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { GameState } from "../game/types";
+import { AssetLoader, styleModel } from "./AssetLoader";
 import { gridToWorld, hash2d, TILE_SIZE, WorldLayout } from "./coords";
-import { Theme } from "./themes";
+import { MODEL_BASE, modelTint, Theme } from "./themes";
 
 const TILE_GEOMETRY = new THREE.BoxGeometry(TILE_SIZE * 0.998, 1, TILE_SIZE * 0.998);
 
@@ -20,7 +21,7 @@ export class BoardRenderer {
     this.group.name = "Board";
   }
 
-  build(state: GameState, theme: Theme): void {
+  build(state: GameState, theme: Theme, assets?: AssetLoader): void {
     this.dispose();
     this.layout = { width: state.width, height: state.height };
 
@@ -41,7 +42,7 @@ export class BoardRenderer {
             break;
           case "Grave":
             this.addFloor(world.x, world.z, variation, theme);
-            this.addGrave(world.x, world.z, theme);
+            this.addGrave(world.x, world.z, theme, assets);
             break;
         }
       }
@@ -165,7 +166,23 @@ export class BoardRenderer {
     this.group.add(mesh);
   }
 
-  private addGrave(x: number, z: number, theme: Theme): void {
+  private addGrave(x: number, z: number, theme: Theme, assets?: AssetLoader): void {
+    const model = assets?.instance("grave");
+    if (model) {
+      const tint = modelTint(MODEL_BASE.grave, theme.floorAlt);
+      styleModel(
+        model,
+        (material) => {
+          material.color.multiply(tint);
+          material.metalness = 0;
+          material.roughness = 0.85;
+        },
+        this.disposables,
+      );
+      model.position.set(x, 0, z);
+      this.group.add(model);
+      return;
+    }
     // A dark carved aperture descending underground, ringed by a stone lip.
     const poolGeometry = new THREE.CircleGeometry(0.38, 32);
     const poolMaterial = new THREE.MeshStandardMaterial({

@@ -5,6 +5,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { GameState, Position } from "../game/types";
 import { AnimationManager } from "./AnimationManager";
+import { AssetLoader } from "./AssetLoader";
 import { BoardRenderer } from "./BoardRenderer";
 import { CameraController } from "./CameraController";
 import { CameraPresetId } from "./cameraPresets";
@@ -26,6 +27,7 @@ import { createUmbraPass } from "./UmbraPass";
 export class Renderer {
   readonly sceneBuilder = new SceneBuilder();
   readonly cameraController = new CameraController();
+  readonly assets = new AssetLoader();
 
   private gl: THREE.WebGLRenderer;
   private boardRenderer: BoardRenderer;
@@ -95,7 +97,8 @@ export class Renderer {
   }
 
   async preload(): Promise<void> {
-    // Everything is procedural; nothing to download.
+    await this.assets.loadAll();
+    this.titleScene.applyModels(this.assets);
   }
 
   setCamera(id: CameraPresetId): void {
@@ -138,10 +141,10 @@ export class Renderer {
     this.animationManager.reducedMotion = this.prefersReducedMotion;
     this.animationManager.setLayout({ width: state.width, height: state.height });
 
-    this.boardRenderer.build(state, theme);
-    this.casterRenderer.build(state, theme);
-    this.shadeRenderer.setLevel(state, theme);
-    this.decorRenderer.build(state, theme);
+    this.boardRenderer.build(state, theme, this.assets);
+    this.casterRenderer.build(state, theme, this.assets);
+    this.shadeRenderer.setLevel(state, theme, this.assets);
+    this.decorRenderer.build(state, theme, this.assets);
     this.effects.setLayout({ width: state.width, height: state.height });
 
     this.cameraController.setDrift(0);

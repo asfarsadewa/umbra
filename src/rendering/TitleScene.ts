@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { AssetLoader, styleModel } from "./AssetLoader";
 import { Theme } from "./themes";
 
 function glowTexture(): THREE.Texture {
@@ -42,6 +43,8 @@ export class TitleScene {
   private sunAngle = Math.PI;
   private shadeTarget = new THREE.Vector3(0, 0, 1.5);
   private built = false;
+  private shadeMixer: THREE.AnimationMixer | null = null;
+  private lastTime = 0;
 
   private static readonly SHADOW_LENGTH = 5.2;
 
@@ -222,6 +225,46 @@ export class TitleScene {
     return root;
   }
 
+  /** Swap the procedural stand-ins for the AI-authored monuments. */
+  applyModels(assets: AssetLoader): void {
+    this.built = true;
+
+    const monument = assets.instance("title");
+    if (monument) {
+      this.pillar.clear();
+      styleModel(
+        monument,
+        (material) => {
+          material.metalness = 0;
+          material.roughness = 0.9;
+        },
+        this.disposables,
+      );
+      this.pillar.add(monument);
+    }
+
+    const shade = assets.instance("shade");
+    if (shade) {
+      this.shade.clear();
+      styleModel(
+        shade,
+        (material) => {
+          material.color.multiply(new THREE.Color(0.32, 0.32, 0.36));
+          material.metalness = 0;
+          material.roughness = 0.85;
+        },
+        this.disposables,
+      );
+      this.shade.add(shade);
+      const clips = assets.animations("shade");
+      const idle = THREE.AnimationClip.findByName(clips, "idle");
+      if (idle) {
+        this.shadeMixer = new THREE.AnimationMixer(shade);
+        this.shadeMixer.clipAction(idle).play();
+      }
+    }
+  }
+
   setTheme(theme: Theme): void {
     this.ground.material.color.set(0x4a3d2b);
     this.keyLight.color.set(0xfff4dd);
@@ -241,6 +284,9 @@ export class TitleScene {
 
   update(timeMs: number): void {
     const t = timeMs / 1000;
+    const dt = Math.min(Math.max(t - this.lastTime, 0), 0.1);
+    this.lastTime = t;
+    this.shadeMixer?.update(dt);
     // A slow, deliberate orbit.
     this.sunAngle += 0.0006 * 16.7;
 
@@ -276,6 +322,8 @@ export class TitleScene {
   }
 
   dispose(): void {
+    this.shadeMixer?.stopAllAction();
+    this.shadeMixer = null;
     for (const item of this.disposables) item.dispose();
     this.disposables.length = 0;
     this.texture.dispose();

@@ -3,6 +3,8 @@
  * reads a theme. UMBRA lives in one place: bleached Mediterranean stone under a
  * hard sun, with extremely dark Shades and deep, cool shadows.
  */
+import * as THREE from "three";
+
 export interface Theme {
   name: string;
 
@@ -175,6 +177,30 @@ const THEMES: Record<string, Theme> = {
 
 export function getTheme(name: string | undefined): Theme {
   return THEMES[name ?? "shadow"] ?? shadow;
+}
+
+/**
+ * The AI-authored stone is authored around this bleached ivory. Theme tints are
+ * expressed as a ratio so a single generated model can serve every chapter.
+ */
+export const MODEL_BASE = {
+  pillar: 0xcabda0,
+  stone: 0xb4a78a,
+  grave: 0xd8ccb0,
+  wall: 0xc4b697,
+  shade: 0x3a3a40,
+} as const;
+
+/** Ratio tint that maps the authored base colour onto a theme colour. */
+export function modelTint(base: number, target: number): THREE.Color {
+  const b = new THREE.Color(base);
+  const t = new THREE.Color(target);
+  const clamp = (v: number) => Math.max(0.05, Math.min(2.5, v));
+  return new THREE.Color(
+    clamp(t.r / Math.max(b.r, 1e-4)),
+    clamp(t.g / Math.max(b.g, 1e-4)),
+    clamp(t.b / Math.max(b.b, 1e-4)),
+  );
 }
 
 export const CHAPTER_ORDER = ["shadow", "corners", "procession", "stones", "eclipse"];

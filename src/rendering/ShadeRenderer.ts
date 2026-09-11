@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { GameState, Position, ShadeState } from "../game/types";
+import { AssetLoader, styleModel } from "./AssetLoader";
 import { gridPositionToWorld, WorldLayout } from "./coords";
-import { Theme } from "./themes";
+import { MODEL_BASE, modelTint, Theme } from "./themes";
 
 interface SmokePuff {
   sprite: THREE.Sprite;
@@ -15,6 +16,10 @@ export interface ShadeView {
   body: THREE.Group;
   smoke: SmokePuff[];
   contact: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
+  mixer: THREE.AnimationMixer | null;
+  idleAction: THREE.AnimationAction | null;
+  walkAction: THREE.AnimationAction | null;
+  walkWeight: number;
   phase: number;
   buried: boolean;
   sink: number;
@@ -43,12 +48,15 @@ function softTexture(): THREE.Texture {
 
 /**
  * The Shades: tiny, near-featureless silhouettes with a thin trail of smoke.
- * They read as vulnerable, not monstrous (SPEC §26).
+ * The shipped model is an AI-authored, Blender-rigged shroud with idle/walk
+ * clips; the procedural primitives are the fallback.
  */
 export class ShadeRenderer {
   readonly group = new THREE.Group();
   private views = new Map<string, ShadeView>();
   private layout: WorldLayout = { width: 1, height: 1 };
+  private theme: Theme | null = null;
+  private assets: AssetLoader | null = null;
   private readonly bodyMaterial: THREE.MeshStandardMaterial;
   private readonly smokeMaterial: THREE.SpriteMaterial;
   private readonly contactMaterial: THREE.MeshBasicMaterial;
@@ -81,9 +89,11 @@ export class ShadeRenderer {
     });
   }
 
-  setLevel(state: GameState, theme: Theme): void {
+  setLevel(state: GameState, theme: Theme, assets?: AssetLoader): void {
     this.clearLevel();
     this.layout = { width: state.width, height: state.height };
+    this.theme = theme;
+    this.assets = assets ?? null;
     this.bodyMaterial.color.set(theme.shade);
     for (const shade of state.shades) this.createShade(shade);
     this.syncInstant(state);
@@ -92,41 +102,54 @@ export class ShadeRenderer {
   private createShade(shade: ShadeState): void {
     const root = new THREE.Group();
     const body = new THREE.Group();
+    const model = this.assets?.instance("shade") ?? null;
 
-    // A narrow robe: a tapered prism, slightly asymmetric.
-    const robeGeometry = new THREE.CylinderGeometry(0.1, 0.23, 0.5, 7, 1);
-    this.geometry.push(robeGeometry);
-    const robe = new THREE.Mesh(robeGeometry, this.bodyMaterial);
-    robe.position.y = 0.25;
-    robe.rotation.y = shade.colorIndex * 0.9;
-    body.add(robe);
+    let mixer: THREE.AnimationMixer | null = null;
+    let idleAction: THREE.AnimationAction | null = null;
+    let walkAction: THREE.AnimationAction | null = null;
 
-    const shoulderGeometry = new THREE.CylinderGeometry(0.14, 0.1, 0.18, 7);
-    this.geometry.push(shoulderGeometry);
-    const shoulders = new THREE.Mesh(shoulderGeometry, this.bodyMaterial);
-    shoulders.position.y = 0.55;
-    body.add(shoulders);
-
-    const headGeometry = new THREE.SphereGeometry(0.095, 10, 8);
-    this.geometry.push(headGeometry);
-    const head = new THREE.Mesh(headGeometry, this.bodyMaterial);
-    head.position.y = 0.68;
-    head.scale.set(0.9, 1.15, 0.9);
-    body.add(head);
-
-    const hoodGeometry = new THREE.ConeGeometry(0.125, 0.22, 8);
-    this.geometry.push(hoodGeometry);
-    const hood = new THREE.Mesh(hoodGeometry, this.bodyMaterial);
-    hood.position.y = 0.7;
-    body.add(hood);
+    if (model) {
+      const tint = modelTint(
+        MODEL_BASE.shade,
+        this.theme?.shade ?? MODEL_BASE.shade,
+      );
+      const sink: THREE.Material[] = [];
+      styleModel(
+        model,
+        (material) => {
+          material.color.multiply(tint);
+          material.metalness = 0;
+          material.roughness = 0.82;
+        },
+        sink,
+      );
+      body.add(model);
+      const clips = this.assets?.animations("shade") ?? [];
+      const idleClip = THREE.AnimationClip.findByName(clips, "idle");
+      const walkClip = THREE.AnimationClip.findByName(clips, "walk");
+      if (idleClip || walkClip) {
+        mixer = new THREE.AnimationMixer(model);
+        if (idleClip) {
+          idleAction = mixer.clipAction(idleClip);
+          idleAction.setEffectiveWeight(1);
+          idleAction.play();
+        }
+        if (walkClip) {
+          walkAction = mixer.clipAction(walkClip);
+          walkAction.setEffectiveWeight(0);
+          walkAction.play();
+        }
+      }
+    } else {
+      body.add(this.buildPrimitiveShade(shade.colorIndex));
+    }
 
     root.add(body);
 
-    // A thin trail of smoke.
     const smoke: SmokePuff[] = [];
     for (let i = 0; i < 3; i++) {
       const sprite = new THREE.Sprite(this.smokeMaterial);
-      sprite.position.set(0, 0.5, 0);
+      sprite.position.set(0, 0.4, 0);
       sprite.scale.setScalar(0.34);
       root.add(sprite);
       smoke.push({ sprite, phase: i * 0.9, speed: 0.22 + i * 0.05 });
@@ -145,6 +168,10 @@ export class ShadeRenderer {
       body,
       smoke,
       contact,
+      mixer,
+      idleAction,
+      walkAction,
+      walkWeight: 0,
       phase: shade.colorIndex * 1.7,
       buried: false,
       sink: 0,
@@ -153,6 +180,34 @@ export class ShadeRenderer {
     };
     this.views.set(shade.id, view);
     this.group.add(root);
+  }
+
+  private buildPrimitiveShade(colorIndex: number): THREE.Group {
+    const body = new THREE.Group();
+    const robeGeometry = new THREE.CylinderGeometry(0.1, 0.23, 0.5, 7, 1);
+    const robe = new THREE.Mesh(robeGeometry, this.bodyMaterial);
+    robe.position.y = 0.25;
+    robe.rotation.y = colorIndex * 0.9;
+    body.add(robe);
+
+    const shoulderGeometry = new THREE.CylinderGeometry(0.14, 0.1, 0.18, 7);
+    const shoulders = new THREE.Mesh(shoulderGeometry, this.bodyMaterial);
+    shoulders.position.y = 0.55;
+    body.add(shoulders);
+
+    const headGeometry = new THREE.SphereGeometry(0.095, 10, 8);
+    const head = new THREE.Mesh(headGeometry, this.bodyMaterial);
+    head.position.y = 0.68;
+    head.scale.set(0.9, 1.15, 0.9);
+    body.add(head);
+
+    const hoodGeometry = new THREE.ConeGeometry(0.125, 0.22, 8);
+    const hood = new THREE.Mesh(hoodGeometry, this.bodyMaterial);
+    hood.position.y = 0.7;
+    body.add(hood);
+
+    this.geometry.push(robeGeometry, shoulderGeometry, headGeometry, hoodGeometry);
+    return body;
   }
 
   syncInstant(state: GameState): void {
@@ -165,8 +220,11 @@ export class ShadeRenderer {
       view.buried = shade.buried;
       view.sink = shade.buried ? 1 : 0;
       view.moving = false;
+      view.walkWeight = 0;
       view.body.rotation.y = 0;
       view.body.position.y = 0;
+      view.idleAction?.setEffectiveWeight(1);
+      view.walkAction?.setEffectiveWeight(0);
     }
   }
 
@@ -187,6 +245,13 @@ export class ShadeRenderer {
   setMoving(id: string, moving: boolean): void {
     const view = this.views.get(id);
     if (view) view.moving = moving;
+  }
+
+  /** Point a Shade toward a world-space direction (XZ). */
+  setFacing(id: string, dx: number, dz: number): void {
+    const view = this.views.get(id);
+    if (!view || (dx === 0 && dz === 0)) return;
+    view.body.rotation.y = Math.atan2(-dz, dx);
   }
 
   /** Show a soft grounding shadow only when the Shade stands in full light. */
@@ -212,23 +277,27 @@ export class ShadeRenderer {
       } else {
         const breathe = Math.sin(t * 1.6 + view.phase) * 0.018;
         view.body.position.y = breathe;
-        const lean = view.moving ? Math.sin(t * 9 + view.phase) * 0.09 : 0;
-        view.body.rotation.z = lean;
         view.contact.material.opacity = view.groundInLight ? 0.34 : 0.08;
       }
 
+      const target = view.moving ? 1 : 0;
+      view.walkWeight += (target - view.walkWeight) * Math.min(1, dt * 7);
+      view.walkAction?.setEffectiveWeight(view.walkWeight);
+      view.idleAction?.setEffectiveWeight(1 - view.walkWeight);
+      view.mixer?.update(dt);
+
       for (const puff of view.smoke) {
         const cycle = (t * puff.speed + puff.phase) % 1;
-        puff.sprite.position.y = 0.45 + cycle * 0.55;
+        puff.sprite.position.y = 0.4 + cycle * 0.5;
         puff.sprite.position.x = Math.sin((cycle + view.phase) * 6) * 0.05;
-        const scale = 0.22 + cycle * 0.4;
-        puff.sprite.scale.setScalar(scale);
+        puff.sprite.scale.setScalar(0.2 + cycle * 0.36);
         puff.sprite.visible = !view.buried;
       }
     }
   }
 
   private clearLevel(): void {
+    for (const view of this.views.values()) view.mixer?.stopAllAction();
     this.views.clear();
     this.group.clear();
     for (const geometry of this.geometry) geometry.dispose();

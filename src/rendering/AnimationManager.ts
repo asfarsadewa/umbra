@@ -100,6 +100,7 @@ export class AnimationManager {
       if (!from.equals(to)) {
         tweens.push({ view, from, to });
         this.shades.setMoving(shade.id, true);
+        this.shades.setFacing(shade.id, to.x - from.x, to.z - from.z);
       }
     }
 

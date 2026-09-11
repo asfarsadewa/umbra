@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { GameState } from "../game/types";
+import { AssetLoader, styleModel } from "./AssetLoader";
 import { gridToWorld, hash2d, WorldLayout } from "./coords";
-import { Theme } from "./themes";
+import { MODEL_BASE, modelTint, Theme } from "./themes";
 
 /**
- * The static shadow casters: tall pillars and low stones. They are built from
- * primitives so the diorama never depends on a downloaded asset, and so their
- * silhouettes stay crisp against the sand.
+ * The static shadow casters: tall pillars and low stones. The shipped models
+ * are AI-authored and prepared in Blender; if they are missing, crisp
+ * procedural primitives are used instead so the diorama always builds.
  */
 export class CasterRenderer {
   readonly group = new THREE.Group();
@@ -17,17 +18,48 @@ export class CasterRenderer {
     this.group.name = "Casters";
   }
 
-  build(state: GameState, theme: Theme): void {
+  build(state: GameState, theme: Theme, assets?: AssetLoader): void {
     this.dispose();
     this.layout = { width: state.width, height: state.height };
+    let index = 0;
     for (const caster of state.board.casters) {
       const world = gridToWorld(this.layout, caster.position.x, caster.position.y);
-      if (caster.kind === "pillar") {
-        this.addPillar(world.x, world.z, state.board.casters.indexOf(caster), theme);
+      const model = assets?.instance(caster.kind === "pillar" ? "pillar" : "stone");
+      if (model) {
+        this.placeModel(model, world.x, world.z, caster.kind, index, theme);
+      } else if (caster.kind === "pillar") {
+        this.addPillar(world.x, world.z, index, theme);
       } else {
-        this.addStone(world.x, world.z, state.board.casters.indexOf(caster), theme);
+        this.addStone(world.x, world.z, index, theme);
       }
+      index++;
     }
+  }
+
+  private placeModel(
+    model: THREE.Object3D,
+    x: number,
+    z: number,
+    kind: "pillar" | "stone",
+    index: number,
+    theme: Theme,
+  ): void {
+    const tint = modelTint(
+      kind === "pillar" ? MODEL_BASE.pillar : MODEL_BASE.stone,
+      kind === "pillar" ? theme.pillar : theme.stone,
+    );
+    styleModel(
+      model,
+      (material) => {
+        material.color.multiply(tint);
+        material.metalness = 0;
+        material.roughness = 0.92;
+      },
+      this.disposables,
+    );
+    model.position.set(x, 0, z);
+    model.rotation.y = (hash2d(index * 13 + 3, index * 7 + 11) - 0.5) * 0.5;
+    this.group.add(model);
   }
 
   private addPillar(x: number, z: number, index: number, theme: Theme): void {
@@ -47,8 +79,7 @@ export class CasterRenderer {
       metalness: 0,
       flatShading: true,
     });
-    this.track(null, shaftMaterial);
-    this.track(null, topMaterial);
+    this.disposables.push(shaftMaterial, topMaterial);
 
     const height = 1.5 + hash2d(index + 21, index + 4) * 0.28;
 
@@ -57,7 +88,7 @@ export class CasterRenderer {
     base.position.y = 0.08;
     base.castShadow = true;
     base.receiveShadow = true;
-    this.track(baseGeometry, null);
+    this.disposables.push(baseGeometry);
     root.add(base);
 
     const plinthGeometry = new THREE.BoxGeometry(0.54, 0.12, 0.54);
@@ -65,7 +96,7 @@ export class CasterRenderer {
     plinth.position.y = 0.2;
     plinth.castShadow = true;
     plinth.receiveShadow = true;
-    this.track(plinthGeometry, null);
+    this.disposables.push(plinthGeometry);
     root.add(plinth);
 
     const shaftGeometry = new THREE.CylinderGeometry(0.185, 0.23, height, 14, 1);
@@ -73,24 +104,22 @@ export class CasterRenderer {
     shaft.position.y = 0.26 + height / 2;
     shaft.castShadow = true;
     shaft.receiveShadow = true;
-    this.track(shaftGeometry, null);
+    this.disposables.push(shaftGeometry);
     root.add(shaft);
 
     const collarGeometry = new THREE.CylinderGeometry(0.25, 0.21, 0.12, 14);
     const collar = new THREE.Mesh(collarGeometry, topMaterial);
     collar.position.y = 0.26 + height + 0.06;
     collar.castShadow = true;
-    this.track(collarGeometry, null);
+    this.disposables.push(collarGeometry);
     root.add(collar);
 
-    // A broken capital: two off-centre blocks so the ruin reads as damaged.
     const capitalGeometry = new THREE.BoxGeometry(0.56, 0.16, 0.56);
     const capital = new THREE.Mesh(capitalGeometry, topMaterial);
     capital.position.y = 0.26 + height + 0.2;
     capital.rotation.y = 0.2;
     capital.castShadow = true;
-    capital.receiveShadow = true;
-    this.track(capitalGeometry, null);
+    this.disposables.push(capitalGeometry);
     root.add(capital);
 
     const chipGeometry = new THREE.BoxGeometry(0.3, 0.11, 0.32);
@@ -98,7 +127,7 @@ export class CasterRenderer {
     chip.position.set(0.1, 0.26 + height + 0.34, -0.08);
     chip.rotation.y = 0.6;
     chip.castShadow = true;
-    this.track(chipGeometry, null);
+    this.disposables.push(chipGeometry);
     root.add(chip);
 
     this.group.add(root);
@@ -117,8 +146,7 @@ export class CasterRenderer {
       metalness: 0,
       flatShading: true,
     });
-    this.track(null, material);
-    this.track(null, topMaterial);
+    this.disposables.push(material, topMaterial);
 
     const root = new THREE.Group();
     root.position.set(x, 0, z);
@@ -129,7 +157,7 @@ export class CasterRenderer {
     slab.position.y = 0.085;
     slab.castShadow = true;
     slab.receiveShadow = true;
-    this.track(slabGeometry, null);
+    this.disposables.push(slabGeometry);
     root.add(slab);
 
     const capGeometry = new THREE.CylinderGeometry(0.38, 0.44, 0.05, 7);
@@ -138,18 +166,10 @@ export class CasterRenderer {
     cap.rotation.y = 0.4;
     cap.castShadow = true;
     cap.receiveShadow = true;
-    this.track(capGeometry, null);
+    this.disposables.push(capGeometry);
     root.add(cap);
 
     this.group.add(root);
-  }
-
-  private track(
-    geometry: THREE.BufferGeometry | null,
-    material: THREE.Material | null,
-  ): void {
-    if (geometry) this.disposables.push(geometry);
-    if (material) this.disposables.push(material);
   }
 
   dispose(): void {

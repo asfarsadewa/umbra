@@ -132,9 +132,12 @@ npx tsx tools/author.ts --file candidate.txt
 A fixed orthographic diorama camera (diorama / classic / elevated, ~46–60° pitch) keeps
 the grid readable. UMBRA is deliberately distinct from *Pilgrims*: bleached ivory stone,
 pale sand, hard warm sunlight and deep, cool shadows, with near-featureless dark Shade
-silhouettes. Every model is **procedural** — fluted broken pillars, low slab stones, carved
-grave apertures, rubble on the walls and dry scrub on the sand — so the art is
-deterministic, tiny, and never obscures shadow geometry.
+silhouettes.
+
+Every gameplay object is an **AI-authored, Blender-prepared model** (see *Assets* below),
+tinted per chapter at runtime so a single set of generated meshes serves all five
+chapters. If a model is ever missing, the renderer falls back to a procedural primitive,
+so the game never hard-fails on an absent asset.
 
 The title screen is a small scene in its own right: a single pillar in an empty space, a
 tiny Shade sheltering behind it, and a slow sun that changes the shadow while the Shade
@@ -154,7 +157,53 @@ stream lazily and crossfade by scene.
 
 ## Assets
 
-The game ships no hand-drawn art. Music and share imagery are generated and reproducible.
+The game ships no hand-drawn art. Every model is generated from a text prompt, and every
+asset is reproducible:
+
+```text
+gpt-image-2.5-sunburst  →  fal Hunyuan 3D 3.1 Pro  →  Blender prep/rig  →  public/models
+        (reference)                (geometry + PBR)        (bake, orient,
+                                                             decimate, rig)
+```
+
+| File | Kind | Preparation |
+| --- | --- | --- |
+| `shade.glb` | rigged character | 12k tris, 14-bone rig, `idle` + `walk` clips |
+| `pillar.glb` | static prop | 6k tris, bleached limestone column, PBR |
+| `stone.glb` | static prop | 4k tris, low slab, fitted to 0.95 tiles wide |
+| `grave.glb` | static prop | 6k tris, carved funerary seal, flattened to a shallow ring |
+| `rubble.glb` | static prop | 2.5k tris, broken-wall cluster, scattered on walls and sand |
+| `title.glb` | static prop | 12k tris, ringed monument for the opening scene |
+
+Each reference was generated with a transparent background, one isolated object per image,
+then reconstructed with Hunyuan 3D 3.1 Pro (PBR), then baked, centred, grounded, oriented,
+decimated, texture-downscaled to 1024, and (for the Shade) rigged and animated in Blender.
+
+### Regenerating the models
+
+```bash
+# 1. reference images (gpt-image-2.5-sunburst), transparent background
+python "$CODEX_HOME/skills/.system/imagegen/scripts/image_gen.py" generate-batch \
+  --model gpt-image-2.5-sunburst --input tools/asset-prompts/models.jsonl \
+  --out-dir output/imagegen/refs --quality xhigh --background transparent \
+  --output-format png --no-augment --concurrency 3
+
+# 2. image -> 3D (fal Hunyuan 3.1 Pro, paid), resumable
+for name in shade pillar title stone grave rubble; do
+  python "$CODEX_HOME/skills/image-to-3d/scripts/hunyuan_3d.py" generate \
+    --image "output/imagegen/refs/$name.png" --name "$name" --out-dir output/3d --pbr
+done
+
+# 3. facing detection + Blender prep/rig -> public/models
+npm run models -- --detect
+```
+
+Facing is determined automatically (`tools/detect_facing.py`): each model is rendered from
+four orthographic views and compared against its reference silhouette by IoU; the matching
+view maps to the Blender yaw that turns the model to face +X, which is UMBRA's runtime
+convention. The result is also recorded in `output/3d/review/<name>/facing.json`.
+
+### Music and share art
 
 ```bash
 npm run music     # Lyria 3.5 (Gemini API) -> public/audio/{title,vigil}.mp3
@@ -162,7 +211,7 @@ npm run og        # key art + Pillow typography -> og-card.png + icons
 ```
 
 The share card composes a generated key-art backdrop with real typography (Georgia), so
-the words are always correct. The three-dimensional world itself is drawn in code.
+the words are always correct.
 
 ---
 
@@ -175,6 +224,7 @@ npm run build      # typecheck + production build into dist/
 npm run test       # unit tests for the simulation
 npm run solve      # BFS-verify every level and its par
 npm run smoke      # headless Chrome smoke test (needs a preview server)
+npm run models     # prepare/rig the GLBs from the newest Hunyuan runs (Blender)
 npm run music      # regenerate ambient tracks (GEMINI_API_KEY)
 npm run og         # regenerate the social card and icons
 npm run deploy     # build + wrangler deploy to umbra.asfarlab.fun
