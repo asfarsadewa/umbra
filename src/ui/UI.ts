@@ -89,7 +89,7 @@ export class UI {
   private setDaylight(state: GameState): void {
     if (state.daylight === null) {
       this.daylightNode.textContent = "—";
-      this.daylightNode.classList.remove("daylight-dots");
+      this.daylightNode.classList.remove("daylight-dots", "low");
       return;
     }
     const total = this.daylightTotal ?? state.daylight;

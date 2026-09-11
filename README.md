@@ -245,6 +245,14 @@ cancellation, swap prevention, grave entry and reuse, multiple Shades, sunset, u
 deterministic replay, signature stability, and the whole campaign (every level solvable,
 every authored par equal to the true minimum, every solution inside its daylight budget).
 
+It also pins the **shadow-visibility invariant**: for every level and every sun, each tile
+a Shade may enter *because it is shadowed* has a visible shadow decal. That includes low
+stones, which are traversable and are regularly covered by another caster's ray (the pillar
+directly beneath the Shade in *The Lattice* throws a long shadow north through the stone
+row). Tall pillars are skipped — they are impassable, so a shadow there carries no
+information — and the decal on a low stone is raised onto the stone's top surface so the
+mesh cannot hide it.
+
 ---
 
 ## Design rule

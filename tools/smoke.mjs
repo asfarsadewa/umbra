@@ -384,6 +384,23 @@ async function main() {
     };
   })()`);
 
+  // The low-daylight styling must clear when returning to an unlimited level.
+  await evaluate(`window.umbra.startLevel(15)`);
+  await delay(600);
+  await evaluate(
+    `(() => { const g = window.umbra.game(); g.state.daylight = 2; window.umbra.ui.setStateHud(g.state); })()`,
+  );
+  const daylightLow = await evaluate(
+    `document.getElementById('daylight').classList.contains('low')`,
+  );
+  await evaluate(`window.umbra.startLevel(0)`);
+  await delay(600);
+  const daylightLowCleared = await evaluate(`(() => ({
+    low: document.getElementById('daylight').classList.contains('low'),
+    text: document.getElementById('daylight').textContent,
+  }))()`);
+  const daylightClass = { lowOnSunset: daylightLow, afterUnlimited: daylightLowCleared };
+
   // Every level must frame inside the orthographic frustum.
   const framing = [];
   for (let i = 0; i < 18; i++) {
@@ -451,6 +468,7 @@ async function main() {
         navigation,
         daylightBefore,
         sunset,
+        daylightClass,
         framing,
         errors,
       },

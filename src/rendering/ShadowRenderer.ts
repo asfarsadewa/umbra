@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { computeShadowDepths } from "../game/shadows";
-import { Direction, posKey } from "../game/types";
+import { Direction } from "../game/types";
 import { Board } from "../world/Board";
 import { gridToWorld, WorldLayout } from "./coords";
+import { selectShadowDecals, shadowFeather } from "./shadowDecals";
 import { Theme } from "./themes";
 
 /**
@@ -83,6 +84,10 @@ const CONTACT_VERTEX = /* glsl */ `
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
+
+const FLOOR_SHADOW_Y = 0.018;
+/** Above the low-stone mesh (0.119 tall) so its shadow is never hidden. */
+const STONE_SHADOW_Y = 0.135;
 
 const CONTACT_FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
@@ -219,31 +224,12 @@ export class ShadowRenderer {
     const depthAttr: number[] = [];
     const revealAttr: number[] = [];
 
-    const neighbours: Array<[number, number, number]> = [
-      [-1, 0, 0], // left (-x)
-      [1, 0, 1], // right (+x)
-      [0, -1, 2], // top (-z)
-      [0, 1, 3], // bottom (+z)
-    ];
-
-    for (const [key, depth] of depths) {
-      const [x, y] = key.split(",").map(Number);
-      if (!board.inBounds(x, y)) continue;
-      const tile = board.tileAt(x, y);
-      if (tile !== "Floor" && tile !== "Grave") continue;
-      if (board.casterAt(x, y)) continue;
-
-      const world = gridToWorld(this.layout, x, y);
-      const f = [0, 0, 0, 0];
-      for (const [dx, dy, slot] of neighbours) {
-        const nx = x + dx;
-        const ny = y + dy;
-        const neighbourShadowed = depths.has(posKey({ x: nx, y: ny }));
-        const neighbourCaster = board.casterAt(nx, ny) !== undefined;
-        f[slot] = !neighbourShadowed && !neighbourCaster ? 1 : 0;
-      }
-
-      const normalizedDepth = Math.min(1, depth / maxDepth);
+    for (const decal of selectShadowDecals(board, depths)) {
+      const world = gridToWorld(this.layout, decal.x, decal.y);
+      const f = shadowFeather(depths, decal.x, decal.y, sun);
+      // Low stones get their decal raised onto the stone's top surface.
+      const y = decal.stone ? STONE_SHADOW_Y : FLOOR_SHADOW_Y;
+      const normalizedDepth = Math.min(1, decal.depth / maxDepth);
       const corners = [
         [world.x - 0.5, world.z - 0.5, 0, 0],
         [world.x + 0.5, world.z - 0.5, 1, 0],
@@ -253,7 +239,7 @@ export class ShadowRenderer {
         [world.x - 0.5, world.z + 0.5, 0, 1],
       ];
       for (const [cx, cz, u, v] of corners) {
-        positions.push(cx, 0.018, cz);
+        positions.push(cx, y, cz);
         uv.push(u, v);
         feather.push(f[0], f[1], f[2], f[3]);
         depthAttr.push(normalizedDepth);
