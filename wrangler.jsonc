@@ -6,7 +6,10 @@
   "preview_urls": true,
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    // No client-side routing, so a missing hashed asset must 404 rather than
+    // fall through to index.html as text/html (which breaks module loading
+    // during the brief window right after a deploy).
+    "not_found_handling": "none"
   },
   "routes": [
     {
