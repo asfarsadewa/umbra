@@ -468,6 +468,21 @@ async function main() {
       animated: !!(view && view.mixer),
     };
   })()`);
+  // The epilogue must actually stream its own track (this is what caught the
+  // missing penumbra.mp3 the first time).
+  await delay(900);
+  const penumbraMusic = await evaluate(`(() => {
+    const a = window.umbra.audio;
+    const entry = a.music.get(a.currentRequest?.name);
+    return {
+      request: a.currentRequest?.name ?? null,
+      paused: entry ? entry.el.paused : null,
+      readyState: entry ? entry.el.readyState : null,
+      currentTime: entry ? +entry.el.currentTime.toFixed(2) : null,
+      error: entry && entry.el.error ? entry.el.error.code : null,
+    };
+  })()`);
+
   await evaluate(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))`,
   );
@@ -492,7 +507,15 @@ async function main() {
   })()`);
   await evaluate(`window.umbra.ui.hideOverlay()`);
 
-  const postgame = { ending, deep, penumbraIntro, penumbra, penumbraAfterMove, select };
+  const postgame = {
+    ending,
+    deep,
+    penumbraIntro,
+    penumbra,
+    penumbraMusic,
+    penumbraAfterMove,
+    select,
+  };
 
   // Every level must frame inside the orthographic frustum.
   const framing = [];

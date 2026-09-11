@@ -191,9 +191,11 @@ the seal opens it in one smooth move, the camera easing back as the title fades 
 ## Audio
 
 Sparse and procedural, generated with the Web Audio API on the first user gesture: dry
-wind, a low stone drone and short interaction sounds (a sun sweep, cloth-and-sand Shade
-movement, a deep burial tone, a reversed resonance for undo). Two generated ambient tracks
-stream lazily and crossfade by scene.
+wind, a low stone drone and short interaction sounds (a sun sweep, cloth-and-sand entity
+movement, a deep burial tone, a reversed resonance for undo). Three generated ambient
+tracks stream lazily and crossfade by scene — `title`, `vigil` (play), and `penumbra`, the
+epilogue's thinner, airier drone. Penumbra levels additionally thin the procedural bed in
+place: a higher drone, more air through the wind filter, and a quieter room.
 
 ---
 
@@ -251,7 +253,7 @@ convention. The result is also recorded in `output/3d/review/<name>/facing.json`
 ### Music and share art
 
 ```bash
-npm run music     # Lyria 3.5 (Gemini API) -> public/audio/{title,vigil}.mp3
+npm run music     # Lyria 3.5 (Gemini API) -> public/audio/{title,vigil,penumbra}.mp3
 npm run og        # key art + Pillow typography -> og-card.jpg + icons
 ```
 
