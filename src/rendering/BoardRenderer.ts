@@ -32,7 +32,7 @@ export class BoardRenderer {
         const variation = hash2d(x, y);
         switch (state.board.tileAt(x, y)) {
           case "Floor":
-            this.addFloor(world.x, world.z, variation, theme);
+            this.addFloor(world.x, world.z, variation, theme, this.ao(state, x, y));
             break;
           case "Wall":
             this.addWall(world.x, world.z, x, y, theme);
@@ -41,7 +41,7 @@ export class BoardRenderer {
             this.addVoid(world.x, world.z, variation, theme);
             break;
           case "Grave":
-            this.addFloor(world.x, world.z, variation, theme);
+            this.addFloor(world.x, world.z, variation, theme, this.ao(state, x, y));
             this.addGrave(world.x, world.z, theme, assets);
             break;
         }
@@ -95,10 +95,43 @@ export class BoardRenderer {
     this.group.add(bed);
   }
 
-  private addFloor(x: number, z: number, variation: number, theme: Theme): void {
+  /** Approximate ambient occlusion from nearby walls, void and casters. */
+  private ao(state: GameState, x: number, y: number): number {
+    let occlusion = 0;
+    for (const [dx, dy, weight] of [
+      [1, 0, 1],
+      [-1, 0, 1],
+      [0, 1, 1],
+      [0, -1, 1],
+      [1, 1, 0.45],
+      [1, -1, 0.45],
+      [-1, 1, 0.45],
+      [-1, -1, 0.45],
+    ] as const) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!state.board.inBounds(nx, ny)) {
+        occlusion += weight * 0.8;
+        continue;
+      }
+      const tile = state.board.tileAt(nx, ny);
+      if (tile === "Wall" || tile === "Void" || state.board.casterAt(nx, ny)) {
+        occlusion += weight;
+      }
+    }
+    return Math.max(0.6, 1 - occlusion * 0.1);
+  }
+
+  private addFloor(
+    x: number,
+    z: number,
+    variation: number,
+    theme: Theme,
+    ao = 1,
+  ): void {
     const height = 0.26;
     const material = new THREE.MeshStandardMaterial({
-      color: variation > 0.5 ? theme.floorAlt : theme.floor,
+      color: new THREE.Color(variation > 0.5 ? theme.floorAlt : theme.floor).multiplyScalar(ao),
       roughness: 0.97,
       metalness: 0,
     });

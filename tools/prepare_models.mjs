@@ -28,12 +28,14 @@ const REVIEW = resolve(ROOT, "output", "3d", "review");
  * reference silhouette against four orthographic review renders (see README).
  */
 const MODELS = [
-  { name: "shade", height: 0.62, tris: 12000, yaw: 90, rig: true, texture: 512 },
+  { name: "princess", height: 0.9, tris: 16000, yaw: 90, rig: true, texture: 512 },
   { name: "pillar", height: 1.75, tris: 6000, yaw: 0, texture: 512 },
   { name: "title", height: 2.6, tris: 12000, yaw: 90, texture: 512 },
   { name: "stone", fit: "width", width: 0.95, tris: 4000, yaw: 0, texture: 512 },
   { name: "grave", fit: "width", width: 1.02, flatten: 0.3, tris: 6000, yaw: 90, texture: 512 },
   { name: "rubble", fit: "width", width: 0.5, tris: 2500, yaw: 0, texture: 512 },
+  { name: "cypress", height: 2.0, tris: 9000, yaw: 0, texture: 512 },
+  { name: "bush", fit: "width", width: 0.95, tris: 4000, yaw: 0, texture: 512 },
 ];
 
 function findBlender() {

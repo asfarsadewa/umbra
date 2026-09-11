@@ -144,11 +144,16 @@ export class Renderer {
     this.boardRenderer.build(state, theme, this.assets);
     this.casterRenderer.build(state, theme, this.assets);
     this.shadeRenderer.setLevel(state, theme, this.assets);
+    this.shadowRenderer.buildContact(state.board, theme, {
+      width: state.width,
+      height: state.height,
+    });
     this.decorRenderer.build(state, theme, this.assets);
     this.effects.setLayout({ width: state.width, height: state.height });
 
     this.cameraController.setDrift(0);
     this.cameraController.setSway(0);
+    this.cameraController.setFocusSpeed(6);
     this.cameraController.fit(state.width, state.height, this.aspect());
     this.sceneBuilder.applyTheme(
       theme,
@@ -170,7 +175,12 @@ export class Renderer {
     }
   }
 
-  showTitle(): void {
+  /**
+   * The entry ritual: an opaque eclipse-seal page whose only job (beyond mood)
+   * is to capture one real user gesture so the browser lets us start audio.
+   * The title scene waits behind the aperture, framed close.
+   */
+  showGate(): void {
     this.mode = "title";
     this.animationManager.reset();
     this.effects.clear();
@@ -181,7 +191,33 @@ export class Renderer {
     this.theme = theme;
     this.gl.toneMappingExposure = 1.35;
     this.titleScene.setTheme(theme);
-    this.cameraController.focus(11, this.aspect(), 2.6);
+    this.cameraController.setFocusSpeed(3.2);
+    this.cameraController.focus(7.2, this.aspect(), 2.4, false);
+    this.cameraController.setDrift(0.02);
+    this.cameraController.setSway(0);
+    this.sceneBuilder.applyTheme(theme, 6, 6, this.cameraController.cameraDistance, 5);
+    this.particles.setTheme(theme.dust, 8, 0.18);
+    this.particles.points.visible = !this.prefersReducedMotion;
+
+    if (this.bloom) {
+      this.bloom.strength = 0.55;
+      this.bloom.threshold = 0.84;
+    }
+  }
+
+  /** Switch to the opening-screen monument. Eases back from the gate framing. */
+  showTitle(animate = true): void {
+    this.mode = "title";
+    this.animationManager.reset();
+    this.effects.clear();
+    this.setGameVisible(false);
+    this.titleScene.setVisible(true);
+
+    const theme = getTheme("eclipse");
+    this.theme = theme;
+    this.gl.toneMappingExposure = 1.35;
+    this.titleScene.setTheme(theme);
+    this.cameraController.focus(11, this.aspect(), 2.6, animate);
     this.cameraController.setDrift(0.05);
     this.cameraController.setSway(0);
     this.sceneBuilder.applyTheme(theme, 6, 6, this.cameraController.cameraDistance, 6);

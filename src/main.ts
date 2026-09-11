@@ -274,9 +274,16 @@ async function bootstrap(): Promise<void> {
   renderer.setCamera(save.data.camera);
   ui.setActiveCamera(save.data.camera);
 
-  // Prepare the resume level behind the title, then open on the title screen.
+  // Prepare the resume level behind the scenes, then open on the sealed
+  // gateway. Its single gesture is what lets the browser start audio.
   startLevel(resumeIndex(), { announce: false });
-  showTitleScreen();
+  ui.setHint(false);
+  renderer.showGate();
+  audio.playMusic(musicRequest("title"));
+  ui.showGate({
+    onUnlock: () => audio.unlock(),
+    onReveal: () => showTitleScreen(),
+  });
 
   (window as unknown as { umbra?: unknown }).umbra = {
     game: () => game,

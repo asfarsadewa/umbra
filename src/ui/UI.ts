@@ -7,6 +7,7 @@ import {
   renderSolvedPanel,
   renderSunsetPanel,
 } from "./LevelComplete";
+import { GateHandlers, renderGateScreen } from "./GateScreen";
 import { renderLevelSelect } from "./LevelSelect";
 import { SaveData } from "./SaveManager";
 import { renderTitleScreen, TitleOptions } from "./TitleScreen";
@@ -173,6 +174,74 @@ export class UI {
     this.onVisibilityChange?.(true);
     this.fadeInOverlay();
     window.requestAnimationFrame(() => this.focusFirst());
+  }
+
+  /**
+   * The pre-title ritual. Captures one real user gesture (which the browser
+   * requires before any audio may start), then opens the eclipse seal and
+   * reveals the title screen.
+   */
+  showGate(handlers: GateHandlers): void {
+    this.escapeAction = null;
+    this.overlay.classList.remove("title-mode");
+    document.body.classList.remove("title-mode");
+    this.overlay.classList.add("gate-mode");
+    document.body.classList.add("gate-mode");
+    this.panelHost.replaceChildren(renderGateScreen());
+
+    const veil = document.createElement("div");
+    veil.className = "gate-veil";
+    const corona = document.createElement("div");
+    corona.className = "gate-corona";
+    this.overlay.prepend(veil, corona);
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    this.overlay.classList.remove("hidden");
+    this.openedAt = performance.now();
+    this.onVisibilityChange?.(true);
+    this.fadeInOverlay();
+
+    const button = this.panelHost.querySelector<HTMLButtonElement>(".gate-begin");
+    let done = false;
+
+    const activate = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("keydown", onKey);
+      this.overlay.removeEventListener("pointerdown", onPointer);
+      button?.removeEventListener("click", onClick);
+      // Audio must be unlocked synchronously inside the gesture.
+      handlers.onUnlock();
+      button?.classList.add("pressed");
+      const delay = reduce ? 120 : 170;
+      window.setTimeout(() => {
+        this.overlay.classList.add("leaving");
+      }, delay);
+      window.setTimeout(() => {
+        this.overlay.classList.remove("gate-mode", "leaving");
+        document.body.classList.remove("gate-mode");
+        veil.remove();
+        corona.remove();
+        handlers.onReveal();
+      }, delay + (reduce ? 120 : 1000));
+    };
+
+    const onPointer = () => activate();
+    const onClick = (event: MouseEvent) => {
+      event.preventDefault();
+      activate();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (["Tab", "Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
+      event.preventDefault();
+      activate();
+    };
+
+    window.addEventListener("keydown", onKey);
+    this.overlay.addEventListener("pointerdown", onPointer);
+    button?.addEventListener("click", onClick);
+    window.requestAnimationFrame(() => button?.focus());
   }
 
   hideOverlay(): void {

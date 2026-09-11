@@ -243,20 +243,20 @@ export class TitleScene {
       this.pillar.add(monument);
     }
 
-    const shade = assets.instance("shade");
+    const shade = assets.instance("princess");
     if (shade) {
       this.shade.clear();
       styleModel(
         shade,
         (material) => {
-          material.color.multiply(new THREE.Color(0.32, 0.32, 0.36));
+          material.color.multiply(new THREE.Color(0.9, 0.88, 0.86));
           material.metalness = 0;
-          material.roughness = 0.85;
+          material.roughness = 0.66;
         },
         this.disposables,
       );
       this.shade.add(shade);
-      const clips = assets.animations("shade");
+      const clips = assets.animations("princess");
       const idle = THREE.AnimationClip.findByName(clips, "idle");
       if (idle) {
         this.shadeMixer = new THREE.AnimationMixer(shade);

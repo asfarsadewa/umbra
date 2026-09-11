@@ -9,11 +9,13 @@ import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
  * primitives, so the game never hard-fails on an absent asset.
  */
 const MODEL_FILES = {
-  shade: "models/shade.glb",
+  princess: "models/princess.glb",
   pillar: "models/pillar.glb",
   stone: "models/stone.glb",
   grave: "models/grave.glb",
   rubble: "models/rubble.glb",
+  cypress: "models/cypress.glb",
+  bush: "models/bush.glb",
   title: "models/title.glb",
 } as const;
 

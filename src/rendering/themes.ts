@@ -35,6 +35,8 @@ export interface Theme {
 
   shade: number;
   shadeRim: number;
+  /** Multiply tint applied to the traveller model (1.0 = authored colours). */
+  character: number;
 
   hemiSky: number;
   hemiGround: number;
@@ -73,6 +75,7 @@ const shadow: Theme = {
   stoneTop: 0xcabd9f,
   shade: 0x08080c,
   shadeRim: 0x9fb6d8,
+  character: 0xffffff,
   hemiSky: 0xfff3da,
   hemiGround: 0x574f3d,
   hemiIntensity: 0.72,
@@ -155,6 +158,7 @@ const eclipse: Theme = {
   stoneTop: 0xa08b67,
   shade: 0x050405,
   shadeRim: 0xffb066,
+  character: 0xffcfa8,
   hemiSky: 0xffc98a,
   hemiGround: 0x241a12,
   hemiIntensity: 0.58,

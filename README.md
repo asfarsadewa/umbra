@@ -131,18 +131,21 @@ npx tsx tools/author.ts --file candidate.txt
 
 A fixed orthographic diorama camera (diorama / classic / elevated, ~46–60° pitch) keeps
 the grid readable. UMBRA is deliberately distinct from *Pilgrims*: bleached ivory stone,
-pale sand, hard warm sunlight and deep, cool shadows, with near-featureless dark Shade
-silhouettes.
+pale sand, hard warm sunlight and deep, cool shadows, and a small regal princess
+traveller leading the procession of Shades.
 
 Every gameplay object is an **AI-authored, Blender-prepared model** (see *Assets* below),
 tinted per chapter at runtime so a single set of generated meshes serves all five
 chapters. If a model is ever missing, the renderer falls back to a procedural primitive,
 so the game never hard-fails on an absent asset.
 
-The title screen is a small scene in its own right: a single pillar in an empty space, a
-tiny Shade sheltering behind it, and a slow sun that changes the shadow while the Shade
-quietly shifts to stay protected — the whole mechanic, taught before the player presses
-anything.
+The title screen is a small scene in its own right: a single pillar in an empty space, the
+traveller sheltering behind it, and a slow sun that changes the shadow while she quietly
+shifts to stay protected — the whole mechanic, taught before the player presses anything.
+
+Before the title, an **eclipse-seal gateway** captures one real user gesture (which is what
+lets the browser start audio). The title scene waits behind its circular aperture; breaking
+the seal opens it in one smooth move, the camera easing back as the title fades in.
 
 ---
 
@@ -168,11 +171,13 @@ gpt-image-2.5-sunburst  →  fal Hunyuan 3D 3.1 Pro  →  Blender prep/rig  → 
 
 | File | Kind | Preparation |
 | --- | --- | --- |
-| `shade.glb` | rigged character | 12k tris, 14-bone rig, `idle` + `walk` clips |
+| `princess.glb` | rigged character | 16k tris, 14-bone rig, `idle` + `walk` clips, 0.9 units tall |
 | `pillar.glb` | static prop | 6k tris, bleached limestone column, PBR |
 | `stone.glb` | static prop | 4k tris, low slab, fitted to 0.95 tiles wide |
 | `grave.glb` | static prop | 6k tris, carved funerary seal, flattened to a shallow ring |
 | `rubble.glb` | static prop | 2.5k tris, broken-wall cluster, scattered on walls and sand |
+| `cypress.glb` | static prop | 9k tris, columnar Mediterranean cypress |
+| `bush.glb` | static prop | 4k tris, dense evergreen shrub |
 | `title.glb` | static prop | 12k tris, ringed monument for the opening scene |
 
 Each reference was generated with a transparent background, one isolated object per image,
@@ -189,7 +194,7 @@ python "$CODEX_HOME/skills/.system/imagegen/scripts/image_gen.py" generate-batch
   --output-format png --no-augment --concurrency 3
 
 # 2. image -> 3D (fal Hunyuan 3.1 Pro, paid), resumable
-for name in shade pillar title stone grave rubble; do
+for name in princess pillar title stone grave rubble cypress bush; do
   python "$CODEX_HOME/skills/image-to-3d/scripts/hunyuan_3d.py" generate \
     --image "output/imagegen/refs/$name.png" --name "$name" --out-dir output/3d --pbr
 done

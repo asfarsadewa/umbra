@@ -446,7 +446,7 @@ def main():
         for obj in objects:
             assign_weights(obj, armature)
         author_idle(armature, args.height)
-        author_walk(armature, args.height, glide=args.kind == "shade")
+        author_walk(armature, args.height, glide=args.kind in ("shade", "princess"))
         push_actions_to_nla(armature, ["idle", "walk"])
         selection = objects + [armature]
     else:

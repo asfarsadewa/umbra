@@ -7,15 +7,23 @@ import {
 
 /**
  * Orthographic diorama camera. Frames the board automatically and never rotates
- * arbitrarily, keeping shadow geometry readable.
+ * arbitrarily, keeping shadow geometry readable. Framing changes (gate -> title
+ * -> level) ease over time so scene transitions are smooth.
  */
 export class CameraController {
   readonly camera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 240);
   private readonly target = new THREE.Vector3(0, 0, 0);
   private readonly direction: THREE.Vector3;
   private readonly desiredDirection: THREE.Vector3;
+  private readonly up = new THREE.Vector3(0, 1, 0);
+
   private extent = 10;
+  private desiredExtent = 10;
   private distance = 26;
+  private desiredTargetY = 0;
+  private aspect = 1;
+  private focusSpeed = 3.2;
+
   private drift = 0;
   private sway = 0;
   private lastTime = 0;
@@ -40,35 +48,53 @@ export class CameraController {
     this.desiredDirection.set(x, y, z).normalize();
   }
 
-  /** Amplitude of the idle breathing motion (0 during active puzzle play). */
   setSway(amount: number): void {
     this.sway = amount;
   }
 
-  /** Slow orbital drift in radians/second (title screen only). */
   setDrift(speed: number): void {
     this.drift = speed;
   }
 
-  fit(width: number, height: number, aspect: number): void {
-    this.focus(Math.max(width, height) + 3.2, aspect, 0.2);
+  /** Seconds-ish speed for framing changes; larger is snappier. */
+  setFocusSpeed(speed: number): void {
+    this.focusSpeed = speed;
   }
 
-  focus(extent: number, aspect: number, targetY = 0): void {
-    this.extent = extent;
+  fit(width: number, height: number, aspect: number): void {
+    this.focus(Math.max(width, height) + 3.2, aspect, 0.2, false);
+  }
+
+  /**
+   * Frame an arbitrary extent, optionally aimed above the ground plane.
+   * With `animate`, the framing eases from its current value instead of popping.
+   */
+  focus(extent: number, aspect: number, targetY = 0, animate = false): void {
+    this.aspect = aspect;
+    this.desiredExtent = extent;
+    this.desiredTargetY = targetY;
     this.distance = extent * 2.6;
-    this.target.set(0, targetY, 0);
-    this.applyFrustum(aspect);
-    this.update(0);
+    if (!animate) {
+      this.extent = extent;
+      this.target.y = targetY;
+      this.applyFrustum();
+      this.update(0);
+    }
   }
 
   update(time: number): void {
     const dt = Math.min(Math.max(time - this.lastTime, 0), 0.1);
     this.lastTime = time;
+
+    this.extent += (this.desiredExtent - this.extent) * Math.min(1, dt * this.focusSpeed);
+    this.distance = this.extent * 2.6;
+    this.target.y += (this.desiredTargetY - this.target.y) * Math.min(1, dt * this.focusSpeed);
+    this.applyFrustum();
+
     this.direction.lerp(this.desiredDirection, Math.min(1, dt * 4.5)).normalize();
 
     const angle = this.drift * time;
-    const direction = this.direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+    const direction = this.direction.clone().applyAxisAngle(this.up, angle);
     const s = this.sway;
     this.camera.position.set(
       this.target.x + direction.x * this.distance + Math.sin(time * 0.23) * s,
@@ -79,11 +105,12 @@ export class CameraController {
   }
 
   resize(aspect: number): void {
-    this.applyFrustum(aspect);
+    this.aspect = aspect;
+    this.applyFrustum();
   }
 
-  private applyFrustum(aspect: number): void {
-    const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  private applyFrustum(): void {
+    const safeAspect = Number.isFinite(this.aspect) && this.aspect > 0 ? this.aspect : 1;
     const size = this.extent;
     let viewWidth: number;
     let viewHeight: number;

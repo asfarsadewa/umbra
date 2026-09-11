@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GameState, Position, ShadeState } from "../game/types";
 import { AssetLoader, styleModel } from "./AssetLoader";
 import { gridPositionToWorld, WorldLayout } from "./coords";
-import { MODEL_BASE, modelTint, Theme } from "./themes";
+import { Theme } from "./themes";
 
 interface SmokePuff {
   sprite: THREE.Sprite;
@@ -102,29 +102,26 @@ export class ShadeRenderer {
   private createShade(shade: ShadeState): void {
     const root = new THREE.Group();
     const body = new THREE.Group();
-    const model = this.assets?.instance("shade") ?? null;
+    const model = this.assets?.instance("princess") ?? null;
 
     let mixer: THREE.AnimationMixer | null = null;
     let idleAction: THREE.AnimationAction | null = null;
     let walkAction: THREE.AnimationAction | null = null;
 
     if (model) {
-      const tint = modelTint(
-        MODEL_BASE.shade,
-        this.theme?.shade ?? MODEL_BASE.shade,
-      );
+      const tint = new THREE.Color(this.theme?.character ?? 0xffffff);
       const sink: THREE.Material[] = [];
       styleModel(
         model,
         (material) => {
           material.color.multiply(tint);
           material.metalness = 0;
-          material.roughness = 0.82;
+          material.roughness = 0.62;
         },
         sink,
       );
       body.add(model);
-      const clips = this.assets?.animations("shade") ?? [];
+      const clips = this.assets?.animations("princess") ?? [];
       const idleClip = THREE.AnimationClip.findByName(clips, "idle");
       const walkClip = THREE.AnimationClip.findByName(clips, "walk");
       if (idleClip || walkClip) {

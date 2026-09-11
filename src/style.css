@@ -929,3 +929,351 @@ body.title-mode #touch-controls {
     width: min(17rem, 62vw);
   }
 }
+
+/* ---------- Pre-title gate ---------- */
+
+body.gate-mode #hud,
+body.gate-mode #controls,
+body.gate-mode #touch-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay.gate-mode {
+  --ap-y: 45%;
+  --ap-r: min(23vmin, 176px);
+  align-items: stretch;
+  justify-content: center;
+  background: transparent;
+  backdrop-filter: none;
+  transition: opacity 0.6s ease;
+}
+
+.overlay.gate-mode .panel {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: clamp(1.4rem, 5vh, 3.2rem) clamp(1.2rem, 6vw, 5rem);
+  animation: none;
+  overflow: hidden;
+}
+
+/* The stone veil: black everywhere except a circular aperture onto the scene. */
+.gate-veil {
+  position: absolute;
+  left: 50%;
+  top: var(--ap-y);
+  width: 340vmax;
+  height: 340vmax;
+  margin: -170vmax;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(6, 5, 3, 0) calc(var(--ap-r) - 9px),
+    rgba(6, 5, 3, 0.7) calc(var(--ap-r) - 2px),
+    #070604 calc(var(--ap-r) + 16px),
+    #070604 100%
+  );
+  transition: transform 1s cubic-bezier(0.5, 0, 0.2, 1), opacity 1s ease;
+}
+
+/* A thin warm corona at the lip of the aperture. */
+.gate-corona {
+  position: absolute;
+  left: 50%;
+  top: var(--ap-y);
+  width: calc(var(--ap-r) * 2);
+  height: calc(var(--ap-r) * 2);
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(232, 180, 90, 0.32);
+  box-shadow: inset 0 0 0 4px rgba(232, 180, 90, 0.05),
+    inset 0 0 90px 38px rgba(0, 0, 0, 0.88), 0 0 50px 10px rgba(0, 0, 0, 0.7);
+  transition: transform 1s cubic-bezier(0.5, 0, 0.2, 1), opacity 1s ease;
+  animation: corona-breathe 5s ease-in-out infinite;
+}
+
+@keyframes corona-breathe {
+  0%,
+  100% {
+    border-color: rgba(232, 180, 90, 0.24);
+  }
+  50% {
+    border-color: rgba(232, 180, 90, 0.46);
+  }
+}
+
+.overlay.gate-mode.leaving .gate-veil {
+  transform: scale(4.2);
+  opacity: 0;
+}
+
+.overlay.gate-mode.leaving .gate-corona {
+  transform: translate(-50%, -50%) scale(4.2);
+  opacity: 0;
+}
+
+.overlay.gate-mode::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
+.gate-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  gap: 1rem;
+  animation: gate-in 1.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.overlay.gate-mode.leaving .gate-screen {
+  opacity: 0;
+  transform: translateY(-10px) scale(1.03);
+}
+
+@keyframes gate-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gate-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.gate-kicker {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.85;
+}
+
+.gate-emblem {
+  position: relative;
+  width: clamp(2.2rem, 6vw, 3rem);
+  height: clamp(2.2rem, 6vw, 3rem);
+  display: grid;
+  place-items: center;
+  opacity: 0.9;
+}
+
+.gate-mark {
+  width: 100%;
+  height: auto;
+  animation: mark-float 7s ease-in-out infinite;
+}
+
+@keyframes mark-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.gate-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding-bottom: 0.6rem;
+}
+
+.gate-line {
+  margin: 0;
+  max-width: 26rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(0.95rem, 2.5vw, 1.3rem);
+  line-height: 1.8;
+  color: var(--ink);
+  opacity: 0.92;
+  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.8);
+}
+
+.gate-begin {
+  position: relative;
+  overflow: hidden;
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 3vw, 1.35rem);
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  text-transform: uppercase;
+  color: #ffe6b0;
+  padding: 0.9rem 2.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 180, 90, 0.42);
+  background: linear-gradient(180deg, #2b2418 0%, #1a150d 55%, #100d08 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.6), 0 10px 24px rgba(0, 0, 0, 0.55),
+    0 0 30px rgba(232, 180, 90, 0.1);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease;
+  animation: gate-breathe 4.5s ease-in-out infinite;
+}
+
+.gate-begin:hover,
+.gate-begin:focus-visible {
+  color: #fff6dd;
+  border-color: var(--gold);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.6), 0 14px 30px rgba(0, 0, 0, 0.6),
+    0 0 46px rgba(232, 180, 90, 0.24);
+  outline: none;
+}
+
+.gate-begin:active,
+.gate-begin.pressed {
+  transform: translateY(2px) scale(0.985);
+  box-shadow: inset 0 3px 12px rgba(0, 0, 0, 0.75), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes gate-breathe {
+  0%,
+  100% {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.6), 0 10px 24px rgba(0, 0, 0, 0.55),
+      0 0 22px rgba(232, 180, 90, 0.08);
+  }
+  50% {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.6), 0 10px 26px rgba(0, 0, 0, 0.55),
+      0 0 44px rgba(232, 180, 90, 0.2);
+  }
+}
+
+.gate-bloom {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgba(255, 236, 190, 0.95),
+    rgba(255, 200, 100, 0) 70%
+  );
+}
+
+.gate-begin.pressed .gate-bloom {
+  animation: gate-bloom 0.85s ease-out forwards;
+}
+
+@keyframes gate-bloom {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(46);
+  }
+}
+
+.gate-hint {
+  margin: 0;
+  font-size: 0.55rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  opacity: 0.55;
+}
+
+.gate-sound {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.5;
+}
+
+.gate-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 0.7rem;
+}
+
+.gate-bar {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--gold);
+  transform-origin: bottom;
+  animation: gate-eq 1.3s ease-in-out infinite;
+}
+
+.gate-bar:nth-child(1) {
+  height: 45%;
+  animation-delay: 0s;
+}
+
+.gate-bar:nth-child(2) {
+  height: 100%;
+  animation-delay: 0.18s;
+}
+
+.gate-bar:nth-child(3) {
+  height: 65%;
+  animation-delay: 0.36s;
+}
+
+@keyframes gate-eq {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-screen,
+  .gate-mark,
+  .gate-begin,
+  .gate-bar,
+  .gate-corona {
+    animation: none;
+  }
+}

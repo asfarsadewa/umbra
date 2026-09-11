@@ -120,6 +120,42 @@ async function main() {
       `window.dispatchEvent(new KeyboardEvent('keydown', { key: '${k}', bubbles: true, cancelable: true }))`,
     );
 
+  /** Choose a sun direction and wait until the turn has actually resolved. */
+  const sunAndWait = async (k) => {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const before = await evaluate(`window.umbra.game().state.turn`);
+      await key(k);
+      for (let i = 0; i < 60; i++) {
+        const status = await evaluate(
+          `(() => ({
+            turn: window.umbra.game().state.turn,
+            mode: window.umbra.game().mode,
+            overlay: !document.getElementById('overlay').classList.contains('hidden'),
+          }))()`,
+        );
+        const settled =
+          status &&
+          status.turn > before &&
+          (status.mode === "waiting" || status.overlay);
+        if (settled) {
+          await delay(status.overlay ? 600 : 180);
+          return;
+        }
+        await delay(120);
+      }
+    }
+    const debug = await evaluate(
+      `(() => ({
+        turn: window.umbra.game().state.turn,
+        mode: window.umbra.game().mode,
+        level: window.umbra.game().state.levelId,
+        overlay: !document.getElementById('overlay').classList.contains('hidden'),
+        uiActive: document.activeElement?.tagName ?? null,
+      }))()`,
+    );
+    throw new Error(`sun input ${k} did not resolve: ${JSON.stringify(debug)}`);
+  };
+
   const info = await evaluate(`(() => {
     try {
       const canvas = document.querySelector('canvas');
@@ -168,7 +204,31 @@ async function main() {
     }
   })()`);
 
-  // Title screen must be present on first load.
+  // The pre-title gateway must be present, capture a gesture, then reveal the
+  // title screen (this is what lets the browser start audio).
+  const gate = await evaluate(`(() => {
+    const overlay = document.getElementById('overlay');
+    return {
+      gateMode: overlay.classList.contains('gate-mode'),
+      hasVeil: !!document.querySelector('.gate-veil'),
+      hasCorona: !!document.querySelector('.gate-corona'),
+      kicker: document.querySelector('.gate-kicker')?.textContent ?? null,
+      button: (document.querySelector('.gate-begin')?.textContent ?? '').trim() || null,
+      titlePresent: !!document.querySelector('.title-screen'),
+    };
+  })()`);
+  const gateShot = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(".smoke/gate.png", Buffer.from(gateShot.data, "base64"));
+
+  await evaluate(`document.querySelector('.gate-begin')?.click()`);
+  await delay(1900);
+  const gateOpened = await evaluate(`(() => ({
+    gateGone: !document.querySelector('.gate-veil'),
+    titleMode: document.getElementById('overlay').classList.contains('title-mode'),
+    word: document.querySelector('.title-word')?.textContent ?? null,
+  }))()`);
+
+  // Inspect the opening screen.
   const title = await evaluate(`(() => {
     const overlay = document.getElementById('overlay');
     const hook = window.umbra;
@@ -189,7 +249,7 @@ async function main() {
   const titleShot = await cdp.send("Page.captureScreenshot", { format: "png" });
   writeFileSync(".smoke/title.png", Buffer.from(titleShot.data, "base64"));
 
-  // BEGIN captures a gesture, starts audio, and enters the first courtyard.
+  // BEGIN captures a gesture, keeps audio running, and enters the first courtyard.
   await evaluate(`document.querySelector('.title-actions button.primary')?.click()`);
   await delay(1400);
 
@@ -245,8 +305,7 @@ async function main() {
   };
 
   // Level 001's solution is S → S (sun south twice).
-  await key("ArrowDown");
-  await delay(850);
+  await sunAndWait("ArrowDown");
   const afterOne = await evaluate(`(() => {
     const g = window.umbra.game();
     return {
@@ -256,8 +315,8 @@ async function main() {
       hintVisible: document.getElementById('hint')?.classList.contains('visible'),
     };
   })()`);
-  await key("ArrowDown");
-  await delay(1900);
+  await sunAndWait("ArrowDown");
+  await delay(600);
   const solved = await evaluate(`(() => {
     const g = window.umbra.game();
     const overlay = document.getElementById('overlay');
@@ -274,16 +333,15 @@ async function main() {
   await evaluate(`document.querySelector('.panel-actions button.primary')?.click()`);
   await delay(900);
   const level2 = await evaluate(`window.umbra.game().state.levelId`);
-  await key("ArrowDown");
-  await delay(900);
+  await sunAndWait("ArrowDown");
   const beforeUndo = await evaluate(`window.umbra.game().state.turn`);
   await key("z");
-  await delay(600);
+  await delay(650);
   const afterUndo = await evaluate(`window.umbra.game().state.turn`);
 
   // Restart and pause via real input.
   await key("r");
-  await delay(500);
+  await delay(600);
   const afterRestart = await evaluate(`window.umbra.game().state.turn`);
   await key("Escape");
   await delay(500);
@@ -314,8 +372,8 @@ async function main() {
     window.umbra.ui.setStateHud(g.state);
     return { daylight: g.state.daylight, hud: document.getElementById('daylight')?.textContent };
   })()`);
-  await key("ArrowUp");
-  await delay(2100);
+  await sunAndWait("ArrowUp");
+  await delay(1200);
   const sunset = await evaluate(`(() => {
     const g = window.umbra.game();
     return {
@@ -383,6 +441,8 @@ async function main() {
     JSON.stringify(
       {
         info,
+        gate,
+        gateOpened,
         title,
         started,
         models,
