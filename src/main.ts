@@ -4,7 +4,15 @@ import { AudioManager } from "./audio/AudioManager";
 import { Game, GameEvent } from "./game/Game";
 import { Direction, GameState } from "./game/types";
 import { InputManager, InputAction } from "./input/InputManager";
-import { LEVELS } from "./levels/index";
+import {
+  ALL_LEVELS,
+  CAMPAIGN_COUNT,
+  DEEP_LEVELS,
+  FINAL_CAMPAIGN_LEVEL_ID,
+  LEVELS,
+  PENUMBRA_LEVELS,
+  sectionOf,
+} from "./levels/index";
 import { Renderer } from "./rendering/Renderer";
 import type { CameraPresetId } from "./rendering/cameraPresets";
 import { SaveManager } from "./ui/SaveManager";
@@ -21,13 +29,23 @@ const INTRO_LINES: Record<string, string> = {
   "014": "The stones remember where to walk.",
   "016": "The day is not endless.",
   "018": "You don't move the dead. You move the sun.",
+  U019: "Still, they walk together.",
+  U020: "Shade on shade on shade.",
+  U021: "One grave is enough for a procession.",
+  U022: "Not one turn to waste.",
+  U023: "The shadow is longer than it looks.",
+  P001: "Nothing lives at either extreme.",
+  P002: "Half-light is where movement lives.",
+  P003: "Two conditions. One sun.",
+  P004: "Two shadows, one light.",
+  P005: "You mastered shadow. Now master its boundary.",
 };
 
 const save = new SaveManager();
 const audio = new AudioManager();
 
-function musicRequest(name: "title" | "vigil") {
-  const volume = name === "title" ? 0.42 : 0.28;
+function musicRequest(name: "title" | "vigil" | "penumbra") {
+  const volume = name === "title" ? 0.42 : name === "vigil" ? 0.28 : 0.26;
   return {
     name,
     url: `${import.meta.env.BASE_URL}audio/${name}.mp3`,
@@ -42,6 +60,7 @@ renderer.start();
 
 let game: Game;
 let currentIndex = 0;
+let endingTimer = 0;
 
 const input = new InputManager();
 input.on(handleInput);
@@ -49,43 +68,62 @@ input.on(handleInput);
 window.addEventListener("pointerdown", () => audio.unlock(), { passive: true });
 window.addEventListener("keydown", () => audio.unlock());
 
-const ui = new UI(
-  {
-    onNext: () => startLevel(currentIndex + 1),
-    onUndo: () => doUndo(),
-    onRestart: () => doRestart(),
-    onMenu: () => ui.showLevelSelect(LEVELS, save.data),
-    onTitle: () => showTitleScreen(),
-    onResume: () => {
-      if (renderer.isTitle) showTitleScreen();
-      else ui.hideOverlay();
-    },
-    onSelectLevel: (index) => startLevel(index),
-    onResetProgress: () => {
-      save.reset();
-      ui.showLevelSelect(LEVELS, save.data);
-    },
-    onSetCamera: (id) => setCameraView(id),
+const ui = new UI({
+  onNext: () => advance(),
+  onUndo: () => doUndo(),
+  onRestart: () => doRestart(),
+  onMenu: () => ui.showLevelSelect(ALL_LEVELS, CAMPAIGN_COUNT, save.data),
+  onTitle: () => showTitleScreen(),
+  onResume: () => {
+    if (renderer.isTitle) showTitleScreen();
+    else ui.hideOverlay();
   },
-  (visible) => input.setUiActive(visible),
-);
+  onSelectLevel: (index) => startLevel(index),
+  onResetProgress: () => {
+    save.reset();
+    ui.showLevelSelect(ALL_LEVELS, CAMPAIGN_COUNT, save.data);
+  },
+  onPostgame: () => showPostgame(),
+  onSetCamera: (id: CameraPresetId) => setCameraView(id),
+});
+
+function campaignIndexOf(globalIndex: number): number {
+  return globalIndex;
+}
+
+function labelFor(globalIndex: number): string {
+  const definition = ALL_LEVELS[globalIndex];
+  const section = sectionOf(definition);
+  if (section === "deep") {
+    return `U${String(DEEP_LEVELS.indexOf(definition) + 1).padStart(2, "0")}`;
+  }
+  if (section === "penumbra") {
+    return `P${String(PENUMBRA_LEVELS.indexOf(definition) + 1).padStart(2, "0")}`;
+  }
+  return String(campaignIndexOf(globalIndex) + 1).padStart(2, "0");
+}
 
 function startLevel(index: number, options: { announce?: boolean } = {}): void {
   const announce = options.announce ?? true;
-  const clamped = Math.max(0, Math.min(index, LEVELS.length - 1));
+  const clamped = Math.max(0, Math.min(index, ALL_LEVELS.length - 1));
   currentIndex = clamped;
-  const definition = LEVELS[clamped];
+  const definition = ALL_LEVELS[clamped];
+  const section = sectionOf(definition);
+
+  window.clearTimeout(endingTimer);
+  audio.setDucked(false);
 
   game = new Game(definition);
   game.on(handleGameEvent);
 
   audio.unlock();
   renderer.loadLevel(game.state);
-  ui.setLevel(clamped, game.state, definition);
+  ui.setLevel(labelFor(clamped), game.state, definition);
+  ui.setLegend(game.state.shades.map((entity) => entity.kind));
   ui.setUndoEnabled(false);
   ui.hideOverlay();
   input.setEnabled(true);
-  audio.playMusic(musicRequest("vigil"), 2);
+  audio.playMusic(musicRequest(section === "penumbra" ? "penumbra" : "vigil"), 2);
 
   const showHint = definition.id === "001" && !save.data.hasMovedSun;
   ui.setHint(showHint);
@@ -97,27 +135,136 @@ function startLevel(index: number, options: { announce?: boolean } = {}): void {
   }
 }
 
+/** Move to the next level, handling the end of the core campaign. */
+function advance(): void {
+  const definition = ALL_LEVELS[currentIndex];
+  const section = sectionOf(definition);
+  if (section === "campaign" && definition.id === FINAL_CAMPAIGN_LEVEL_ID) {
+    showCampaignComplete();
+    return;
+  }
+  const next = currentIndex + 1;
+  if (next >= ALL_LEVELS.length || sectionOf(ALL_LEVELS[next]) !== section) {
+    showPostgame();
+    return;
+  }
+  startLevel(next);
+}
+
+/** Where a level sits inside its own section, for the solved panel. */
+function sectionPosition(globalIndex: number): { index: number; total: number } {
+  const definition = ALL_LEVELS[globalIndex];
+  const section = sectionOf(definition);
+  if (section === "deep") return { index: DEEP_LEVELS.indexOf(definition), total: DEEP_LEVELS.length };
+  if (section === "penumbra") {
+    return { index: PENUMBRA_LEVELS.indexOf(definition), total: PENUMBRA_LEVELS.length };
+  }
+  return { index: campaignIndexOf(globalIndex), total: CAMPAIGN_COUNT };
+}
+
 function resumeIndex(): number {
-  return Math.min(save.data.highestLevel, LEVELS.length - 1);
+  // Resume the first unsolved campaign level, or the first postgame level.
+  const solved = new Set(save.data.completed);
+  for (let i = 0; i < CAMPAIGN_COUNT; i++) {
+    if (!solved.has(LEVELS[i].id)) return i;
+  }
+  return Math.min(CAMPAIGN_COUNT, ALL_LEVELS.length - 1);
 }
 
 function showTitleScreen(): void {
   audio.unlock();
+  audio.setDucked(false);
   renderer.showTitle();
   ui.setHint(false);
   audio.playMusic(musicRequest("title"));
   ui.showTitle({
     hasProgress: save.data.highestLevel > 0,
+    postgameUnlocked: save.data.postgameUnlocked,
     muted: audio.muted,
     camera: save.data.camera,
     handlers: {
       onContinue: () => startLevel(resumeIndex()),
       onBegin: () => startLevel(0),
-      onChapters: () => ui.showLevelSelect(LEVELS, save.data),
+      onChapters: () => ui.showLevelSelect(ALL_LEVELS, CAMPAIGN_COUNT, save.data),
+      onPostgame: () => showPostgame(),
       onToggleMute: () => toggleMute(),
       onSetCamera: (id) => setCameraView(id),
     },
   });
+}
+
+function showPostgame(): void {
+  ui.showPostgame({
+    deepSolved: save.sectionSolved("deep"),
+    deepTotal: DEEP_LEVELS.length,
+    penumbraSolved: save.sectionSolved("penumbra"),
+    penumbraTotal: PENUMBRA_LEVELS.length,
+    handlers: {
+      onDeepUmbra: () => startSection("deep"),
+      onPenumbra: () => enterPenumbra(),
+      onReturn: () => showTitleScreen(),
+    },
+  });
+}
+
+/** Start the first unsolved level of a postgame section. */
+function startSection(section: "deep" | "penumbra"): void {
+  const levels = section === "deep" ? DEEP_LEVELS : PENUMBRA_LEVELS;
+  const base = ALL_LEVELS.indexOf(levels[0]);
+  const firstUnsolved = levels.findIndex((level) => !save.isSectionCompleted(section, level.id));
+  startLevel(base + (firstUnsolved === -1 ? 0 : firstUnsolved));
+}
+
+/**
+ * The campaign ending, then the postgame choice. The HUD fades, the room goes
+ * quiet, the camera holds, and the shadow edge softens before the choice.
+ */
+function showCampaignComplete(): void {
+  input.setEnabled(false);
+  audio.setDucked(true);
+  document.body.classList.add("ending-mode");
+
+  endingTimer = window.setTimeout(() => {
+    renderer.revealPenumbra();
+  }, 900);
+
+  endingTimer = window.setTimeout(() => {
+    ui.showCampaignComplete({
+      onDeepUmbra: () => {
+        document.body.classList.remove("ending-mode");
+        save.markPostgameChoiceSeen();
+        startSection("deep");
+      },
+      onPenumbra: () => {
+        document.body.classList.remove("ending-mode");
+        save.markPostgameChoiceSeen();
+        enterPenumbra();
+      },
+      onReturn: () => {
+        document.body.classList.remove("ending-mode");
+        showTitleScreen();
+      },
+    });
+  }, 2600);
+}
+
+/** The half-light reveal, then P001. */
+function enterPenumbra(): void {
+  audio.setDucked(false);
+  audio.playMusic(musicRequest("penumbra"), 1.2);
+  const go = () => {
+    const base = ALL_LEVELS.indexOf(PENUMBRA_LEVELS[0]);
+    const firstUnsolved = PENUMBRA_LEVELS.findIndex(
+      (level) => !save.isSectionCompleted("penumbra", level.id),
+    );
+    startLevel(base + (firstUnsolved === -1 ? 0 : firstUnsolved));
+  };
+  if (!save.data.seenPostgameChoice) {
+    renderer.revealPenumbra();
+    ui.showPenumbraIntro(go);
+  } else {
+    go();
+  }
 }
 
 function setCameraView(id: CameraPresetId): void {
@@ -182,7 +329,8 @@ function doRestart(): void {
   game.restart();
   ui.hideOverlay();
   input.setEnabled(true);
-  audio.playMusic(musicRequest("vigil"), 1.2);
+  const section = sectionOf(ALL_LEVELS[currentIndex]);
+  audio.playMusic(musicRequest(section === "penumbra" ? "penumbra" : "vigil"), 1.2);
 }
 
 function handleGameEvent(event: GameEvent): void {
@@ -246,10 +394,23 @@ function onUndo(next: GameState): void {
 }
 
 function handleSolved(state: GameState): void {
-  save.markCompleted(LEVELS[currentIndex].id, state.turn, currentIndex);
+  const definition = ALL_LEVELS[currentIndex];
+  const section = sectionOf(definition);
+  if (section === "campaign") {
+    save.markCompleted(definition.id, state.turn, campaignIndexOf(currentIndex));
+  } else {
+    save.markSectionCompleted(section, definition.id, state.turn);
+  }
   audio.solve();
+
+  if (section === "campaign" && definition.id === FINAL_CAMPAIGN_LEVEL_ID) {
+    showCampaignComplete();
+    return;
+  }
+
   input.setEnabled(false);
-  window.setTimeout(() => ui.showSolved(state, currentIndex, LEVELS.length), 450);
+  const position = sectionPosition(currentIndex);
+  window.setTimeout(() => ui.showSolved(state, position.index, position.total), 450);
 }
 
 function handleSunset(state: GameState): void {
@@ -288,8 +449,14 @@ async function bootstrap(): Promise<void> {
   (window as unknown as { umbra?: unknown }).umbra = {
     game: () => game,
     startLevel,
+    advance,
+    showEnding: () => showCampaignComplete(),
+    levelById: (id: string) => ALL_LEVELS.findIndex((level) => level.id === id),
+    showPostgame,
+    enterPenumbra,
     renderer,
-    levels: LEVELS,
+    levels: ALL_LEVELS,
+    campaignCount: CAMPAIGN_COUNT,
     save,
     audio,
     ui,

@@ -1,0 +1,22 @@
+{
+  "id": "U019",
+  "name": "Still They Walk",
+  "chapter": "deep",
+  "par": 7,
+  "width": 7,
+  "height": 7,
+  "startingSun": "S",
+  "map": [
+    "#######",
+    "#.....#",
+    "#LLLLG#",
+    "#LL...#",
+    "#LL...#",
+    "#LL...#",
+    "#######"
+  ],
+  "entities": [
+    { "kind": "shade", "x": 1, "y": 5 },
+    { "kind": "shade", "x": 2, "y": 5 }
+  ]
+}

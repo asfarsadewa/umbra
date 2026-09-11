@@ -1277,3 +1277,268 @@ body.gate-mode #touch-controls {
     animation: none;
   }
 }
+
+/* ---------- Campaign ending + postgame ---------- */
+
+body.ending-mode #hud,
+body.ending-mode #controls,
+body.ending-mode #touch-controls {
+  opacity: 0.12;
+  pointer-events: none;
+  transition: opacity 2s ease;
+}
+
+body.postgame-mode #hud,
+body.postgame-mode #controls,
+body.postgame-mode #touch-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay.postgame-mode {
+  align-items: stretch;
+  background: linear-gradient(
+    to bottom,
+    rgba(6, 5, 3, 0.82) 0%,
+    rgba(6, 5, 3, 0.35) 40%,
+    rgba(6, 5, 3, 0.55) 70%,
+    rgba(6, 5, 3, 0.96) 100%
+  );
+  backdrop-filter: blur(2px);
+}
+
+.overlay.postgame-mode.leaving {
+  opacity: 0;
+}
+
+.overlay.postgame-mode .panel {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: clamp(1.6rem, 6vh, 4rem) clamp(1.2rem, 6vw, 5rem);
+  animation: none;
+}
+
+.postgame-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  gap: 2rem;
+}
+
+.postgame-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.postgame-kicker {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.52em;
+  text-indent: 0.52em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.postgame-title {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 6vw, 2.9rem);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  text-shadow: 0 6px 50px rgba(0, 0, 0, 0.9);
+}
+
+.postgame-quote {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(0.9rem, 2.4vw, 1.15rem);
+  line-height: 1.9;
+  color: var(--ink-dim);
+}
+
+.postgame-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+  width: min(52rem, 100%);
+}
+
+.postgame-choice {
+  appearance: none;
+  flex: 1 1 13rem;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(18, 15, 10, 0.72);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.18s ease, border-color 0.25s ease, background 0.25s ease,
+    box-shadow 0.3s ease;
+}
+
+.postgame-choice:hover,
+.postgame-choice:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--gold);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), 0 0 40px rgba(232, 180, 90, 0.12);
+  outline: none;
+}
+
+.postgame-choice.penumbra:hover,
+.postgame-choice.penumbra:focus-visible {
+  border-color: #9fb6d8;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), 0 0 44px rgba(159, 182, 216, 0.16);
+}
+
+.postgame-choice.return {
+  flex: 1 1 100%;
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.8;
+}
+
+.postgame-choice-label {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.postgame-choice-blurb {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+}
+
+.postgame-divider {
+  height: 1px;
+  margin: 1.2rem auto 0.2rem;
+  width: min(18rem, 70%);
+  background: linear-gradient(90deg, transparent, rgba(232, 180, 90, 0.4), transparent);
+}
+
+.section-label {
+  margin: 0.9rem 0 0.2rem;
+  text-align: left;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* ---------- Penumbra reveal ---------- */
+
+.penumbra-intro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  text-align: center;
+}
+
+.penumbra-word {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 7vw, 3.6rem);
+  letter-spacing: 0.44em;
+  text-indent: 0.44em;
+  color: #dbe6f7;
+  text-shadow: 0 6px 60px rgba(0, 0, 0, 0.9), 0 0 90px rgba(159, 182, 216, 0.22);
+}
+
+.penumbra-line {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(0.85rem, 2.4vw, 1.15rem);
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .postgame-choice,
+  .penumbra-word {
+    animation: none;
+  }
+}
+
+/* ---------- Legend (Penumbra entities) ---------- */
+
+.legend {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3.4rem);
+  z-index: 5;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(18, 15, 10, 0.62);
+  border: 1px solid var(--panel-edge);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.legend.visible {
+  opacity: 1;
+}
+
+.legend-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.legend-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-shade .legend-swatch {
+  background: #0b0b10;
+  border: 1px solid #4a4f60;
+}
+
+.legend-wraith .legend-swatch {
+  /* Half-light: a stippled pale swatch, distinct from the dark Shade. */
+  background-image: radial-gradient(#dbe6f7 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  background-color: rgba(159, 182, 216, 0.35);
+  border: 1px solid #9fb6d8;
+}
+
+@media (max-width: 720px) {
+  .legend {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3.2rem);
+  }
+}

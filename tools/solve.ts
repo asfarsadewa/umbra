@@ -11,7 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import { replay, solve } from "../src/game/Solver";
-import { LEVELS } from "../src/levels/index";
+import { ALL_LEVELS } from "../src/levels/index";
 import { LevelDefinition } from "../src/world/Level";
 import { loadLevel } from "../src/world/LevelLoader";
 
@@ -26,7 +26,7 @@ const maxDepth =
 
 const levels: LevelDefinition[] = singleFile
   ? [JSON.parse(readFileSync(singleFile, "utf8")) as LevelDefinition]
-  : (LEVELS as LevelDefinition[]);
+  : (ALL_LEVELS as LevelDefinition[]);
 
 for (const definition of levels) {
   const state = loadLevel(definition);

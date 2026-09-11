@@ -401,6 +401,97 @@ async function main() {
   }))()`);
   const daylightClass = { lowOnSunset: daylightLow, afterUnlimited: daylightLowCleared };
 
+  // ---- Postgame: the ending, the choice, and both branches ----
+  await evaluate(`window.umbra.startLevel(window.umbra.levelById("018"))`);
+  await delay(600);
+  await evaluate(`window.umbra.showEnding()`);
+  await delay(3200);
+  const ending = await evaluate(`(() => {
+    const screen = document.querySelector('.postgame-screen');
+    const choices = [...document.querySelectorAll('.postgame-choice')].map((b) =>
+      (b.querySelector('.postgame-choice-label')?.textContent ?? '').trim(),
+    );
+    return {
+      present: !!screen,
+      title: document.querySelector('.postgame-title')?.textContent ?? null,
+      kicker: document.querySelector('.postgame-kicker')?.textContent ?? null,
+      choices,
+      hudFaded: getComputedStyle(document.getElementById('hud')).opacity,
+    };
+  })()`);
+  const endingShot = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(".smoke/ending.png", Buffer.from(endingShot.data, "base64"));
+
+  // Deep Umbra must run on the original rules.
+  await evaluate(
+    `[...document.querySelectorAll('.postgame-choice')].find((b) => b.classList.contains('deep'))?.click()`,
+  );
+  await delay(900);
+  const deep = await evaluate(`(() => {
+    const g = window.umbra.game();
+    return {
+      level: g.state.levelId,
+      name: g.state.levelName,
+      rules: g.state.rules,
+      entities: g.state.shades.map((e) => e.kind),
+      par: g.state.par,
+    };
+  })()`);
+
+  // Penumbra: the half-light reveal, then P001 with a Wraith.
+  await evaluate(`window.umbra.startLevel(window.umbra.levelById("018"))`);
+  await delay(400);
+  await evaluate(`window.umbra.enterPenumbra()`);
+  await delay(1400);
+  const penumbraIntro = await evaluate(`(() => ({
+    word: document.querySelector('.penumbra-word')?.textContent ?? null,
+    line: document.querySelector('.penumbra-line')?.textContent ?? null,
+  }))()`);
+  const introShot = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(".smoke/penumbra-intro.png", Buffer.from(introShot.data, "base64"));
+  await delay(2600);
+  const penumbra = await evaluate(`(() => {
+    const g = window.umbra.game();
+    const r = window.umbra.renderer;
+    const view = [...r.shadeRenderer.views.values()][0];
+    let skinned = 0;
+    if (view) view.root.traverse((o) => { if (o.isSkinnedMesh) skinned++; });
+    return {
+      level: g.state.levelId,
+      rules: g.state.rules,
+      entities: g.state.shades.map((e) => e.kind),
+      legendVisible: document.getElementById('legend')?.classList.contains('visible'),
+      legendText: document.getElementById('legend')?.textContent ?? null,
+      skinned,
+      animated: !!(view && view.mixer),
+    };
+  })()`);
+  await evaluate(
+    `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))`,
+  );
+  await delay(1200);
+  const penumbraAfterMove = await evaluate(`(() => {
+    const g = window.umbra.game();
+    return { turn: g.state.turn, status: g.state.status, pos: g.state.shades[0].position };
+  })()`);
+  const penumbraShot = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(".smoke/penumbra.png", Buffer.from(penumbraShot.data, "base64"));
+
+  // Level select must separate the postgame from the campaign (the ending
+  // normally marks 018 complete; the debug trigger does not, so set it here).
+  await evaluate(
+    `(() => { const s = window.umbra.save; s.data.campaignComplete = true; s.data.postgameUnlocked = true; if (!s.data.completed.includes("018")) s.data.completed.push("018"); })()`,
+  );
+  await evaluate(`window.umbra.ui.showLevelSelect(window.umbra.levels, window.umbra.campaignCount, window.umbra.save.data)`);
+  await delay(400);
+  const select = await evaluate(`(() => {
+    const labels = [...document.querySelectorAll('.chapter-label, .section-label')].map((n) => n.textContent);
+    return { labels, cards: document.querySelectorAll('.level-card').length, divider: !!document.querySelector('.postgame-divider') };
+  })()`);
+  await evaluate(`window.umbra.ui.hideOverlay()`);
+
+  const postgame = { ending, deep, penumbraIntro, penumbra, penumbraAfterMove, select };
+
   // Every level must frame inside the orthographic frustum.
   const framing = [];
   for (let i = 0; i < 18; i++) {
@@ -469,6 +560,7 @@ async function main() {
         daylightBefore,
         sunset,
         daylightClass,
+        postgame,
         framing,
         errors,
       },

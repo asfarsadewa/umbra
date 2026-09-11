@@ -35,16 +35,29 @@ export class AudioManager {
     if (!Ctor) return;
     this.ctx = new Ctor();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.6;
+    this.master.gain.value = this.muted ? 0 : AudioManager.BASE_GAIN;
     this.master.connect(this.ctx.destination);
     this.startAmbient();
     this.applyMusic(this.currentRequest, 1.4);
   }
 
+  private ducked = false;
+  private static readonly BASE_GAIN = 0.6;
+
+  /** Lower everything for the campaign ending (spec §4). */
+  setDucked(ducked: boolean): void {
+    this.ducked = ducked;
+    if (this.master && this.ctx) {
+      const target = this.muted ? 0 : this.ducked ? 0.22 : AudioManager.BASE_GAIN;
+      this.master.gain.setTargetAtTime(target, this.ctx.currentTime, 0.4);
+    }
+  }
+
   setMuted(muted: boolean): void {
     this.muted = muted;
     if (this.master && this.ctx) {
-      this.master.gain.setTargetAtTime(muted ? 0 : 0.6, this.ctx.currentTime, 0.05);
+      const target = muted ? 0 : this.ducked ? 0.22 : AudioManager.BASE_GAIN;
+      this.master.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
     }
   }
 

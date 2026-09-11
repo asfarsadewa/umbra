@@ -1,0 +1,25 @@
+{
+  "id": "P004",
+  "name": "Two Shadows",
+  "chapter": "penumbra",
+  "par": 10,
+  "rules": "penumbra",
+  "width": 9,
+  "height": 9,
+  "startingSun": "S",
+  "map": [
+    "#########",
+    "#..G....#",
+    "#.......#",
+    "#.......#",
+    "#.....P.#",
+    "#.......#",
+    "#...P...#",
+    "#G......#",
+    "#########"
+  ],
+  "entities": [
+    { "kind": "wraith", "x": 6, "y": 5 },
+    { "kind": "wraith", "x": 5, "y": 6 }
+  ]
+}

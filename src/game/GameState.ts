@@ -17,10 +17,14 @@ import { GameState, posKey } from "./types";
  * level impossible or a bogus minimum instead of crashing.
  */
 export function stateSignature(state: GameState): string {
+  // The kind is part of the identity: a Shade and a Wraith at the same tile
+  // are not interchangeable, they need different illumination to move.
   const shades = state.shades
     .map(
-      (shade) =>
-        `${shade.buried ? "X" : `${shade.position.x},${shade.position.y}`}`,
+      (entity) =>
+        `${entity.kind[0]}:${
+          entity.buried ? "X" : `${entity.position.x},${entity.position.y}`
+        }`,
     )
     .sort()
     .join(";");

@@ -1,4 +1,4 @@
-import { Direction } from "../game/types";
+import { Direction, EntityKind, Rules } from "../game/types";
 
 /**
  * JSON level definition.
@@ -15,6 +15,12 @@ import { Direction } from "../game/types";
  *   L  low stone
  *   X  decorative / non-traversable feature
  */
+export interface LevelEntityDefinition {
+  kind?: EntityKind;
+  x: number;
+  y: number;
+}
+
 export interface LevelDefinition {
   id: string;
   name: string;
@@ -26,5 +32,13 @@ export interface LevelDefinition {
   width?: number;
   height?: number;
   startingSun: Direction;
+  /** Illumination model. Defaults to "umbra" (the original rules). */
+  rules?: Rules;
   map: string[];
+  /**
+   * Optional explicit entities, for cases the map legend cannot express — most
+   * importantly a Shade or Wraith standing ON a low stone (needed by stone-rail
+   * puzzles). The map tile is still authored with "L".
+   */
+  entities?: LevelEntityDefinition[];
 }

@@ -13,6 +13,7 @@ export const TILE_CHARS: Record<string, TileType> = {
 export const PILLAR_CHAR = "P";
 export const STONE_CHAR = "L";
 export const SHADE_CHAR = "S";
+export const WRAITH_CHAR = "W";
 
 /** Terrain that stops a Shade: walls and void. Graves are enterable. */
 export function blocksShade(tile: TileType): boolean {

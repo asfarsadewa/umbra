@@ -10,6 +10,7 @@ import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
  */
 const MODEL_FILES = {
   princess: "models/princess.glb",
+  wraith: "models/wraith.glb",
   pillar: "models/pillar.glb",
   stone: "models/stone.glb",
   grave: "models/grave.glb",

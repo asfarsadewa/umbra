@@ -1,15 +1,16 @@
 import { cloneState } from "./clone";
 import { collectIntents, resolveCollisions } from "./CollisionResolver";
-import { getShadeIntent } from "./Movement";
-import { computeShadows } from "./shadows";
-import { Direction, GameState } from "./types";
+import { getEntityIntent } from "./Movement";
+import { computeIlluminationDepths } from "./shadows";
+import { Direction, GameState, Illumination, requiredIllumination } from "./types";
 
 /**
  * Resolve one complete turn. The input state is never mutated.
  *
  *   1. the sun changes immediately
- *   2. logical shadows are recalculated
- *   3. every Shade determines its intended move
+ *   2. illumination is recalculated from the board, the sun and the level rules
+ *   3. every entity determines its intended move (Shades need umbra, Wraiths
+ *      need penumbra)
  *   4. movement conflicts are resolved
  *   5. valid moves occur simultaneously
  *   6. grave entries are resolved
@@ -20,23 +21,29 @@ export function resolveTurn(state: GameState, sun: Direction): GameState {
   const next = cloneState(state);
   next.sun = sun;
 
-  const shadows = computeShadows(next.board, sun);
+  const field = computeIlluminationDepths(next.board, sun, next.rules);
+  const byTier: Record<Illumination, Set<string>> = {
+    light: new Set(),
+    penumbra: new Set(),
+    umbra: new Set(),
+  };
+  for (const [key, tile] of field) byTier[tile.tier].add(key);
 
-  const intents = collectIntents(next, (shade) =>
-    getShadeIntent(next.board, sun, shadows, shade),
+  const intents = collectIntents(next, (entity) =>
+    getEntityIntent(next.board, sun, byTier[requiredIllumination(entity.kind)], entity),
   );
   const moves = resolveCollisions(next, intents);
 
-  for (const shade of next.shades) {
-    const destination = moves.get(shade.id);
-    if (destination) shade.position = { ...destination };
+  for (const entity of next.shades) {
+    const destination = moves.get(entity.id);
+    if (destination) entity.position = { ...destination };
   }
 
-  // Grave entries remove the Shade immediately.
-  for (const shade of next.shades) {
-    if (shade.buried) continue;
-    if (next.board.tileAt(shade.position.x, shade.position.y) === "Grave") {
-      shade.buried = true;
+  // Grave entries remove the entity immediately.
+  for (const entity of next.shades) {
+    if (entity.buried) continue;
+    if (next.board.tileAt(entity.position.x, entity.position.y) === "Grave") {
+      entity.buried = true;
     }
   }
 
@@ -54,12 +61,12 @@ export function resolveTurn(state: GameState, sun: Direction): GameState {
   return next;
 }
 
-/** Every Shade has entered a grave. */
+/** Every entity has entered a grave. */
 export function isSolved(state: GameState): boolean {
-  return state.shades.length > 0 && state.shades.every((shade) => shade.buried);
+  return state.shades.length > 0 && state.shades.every((entity) => entity.buried);
 }
 
-/** Daylight ran out before every Shade was buried. */
+/** Daylight ran out before every entity was buried. */
 export function isSunset(state: GameState): boolean {
   return state.status === "sunset";
 }
@@ -69,5 +76,5 @@ export function isFinished(state: GameState): boolean {
 }
 
 export function buriedCount(state: GameState): number {
-  return state.shades.filter((shade) => shade.buried).length;
+  return state.shades.filter((entity) => entity.buried).length;
 }

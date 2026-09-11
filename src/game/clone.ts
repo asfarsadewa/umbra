@@ -6,6 +6,7 @@ export function cloneState(state: GameState): GameState {
     levelId: state.levelId,
     levelName: state.levelName,
     chapter: state.chapter,
+    rules: state.rules,
     par: state.par,
     width: state.width,
     height: state.height,

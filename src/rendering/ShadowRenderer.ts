@@ -1,21 +1,18 @@
 import * as THREE from "three";
-import { computeShadowDepths } from "../game/shadows";
-import { Direction } from "../game/types";
+import { computeIlluminationDepths } from "../game/shadows";
+import { Direction, Rules } from "../game/types";
 import { Board } from "../world/Board";
 import { gridToWorld, WorldLayout } from "./coords";
 import { selectShadowDecals, shadowFeather } from "./shadowDecals";
 import { Theme } from "./themes";
 
 /**
- * Draws the authoritative logical shadow onto the floor.
+ * Paints the illumination field onto the floor.
  *
- * The simulation owns shadow truth (SPEC §6); this renderer paints exactly the
- * tiles it reports. One merged mesh carries every shadowed tile, with per-vertex
- * data so the shadow has a soft outer boundary, darkens toward its caster and
- * fades toward its far end, and sweeps outward when the sun changes.
- *
- * A second, static layer adds soft contact occlusion around walls and casters so
- * objects sit in the courtyard instead of floating on it.
+ * Two tiers are drawn from one merged mesh, distinguished by more than colour
+ * (Penumbra spec §27): full shadow is a deep, opaque decal, while partial shadow
+ * is lighter and **stippled** with an ordered dither, so light / penumbra / umbra
+ * stay readable in grayscale and at a glance. The per-caster sweep is preserved.
  */
 
 const VERTEX = /* glsl */ `
@@ -23,30 +20,36 @@ const VERTEX = /* glsl */ `
   attribute vec4 aFeather;
   attribute float aDepth;
   attribute float aReveal;
+  attribute float aTier;      // 1 = umbra, 2 = penumbra
   varying vec2 vUv;
   varying vec4 vFeather;
   varying float vDepth;
   varying float vReveal;
+  varying float vTier;
   varying vec2 vWorld;
   void main() {
     vUv = aUv;
     vFeather = aFeather;
     vDepth = aDepth;
     vReveal = aReveal;
+    vTier = aTier;
     vWorld = vec2(position.x, position.z);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
 const FRAGMENT = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uOpacity;
+  uniform vec3 uColor;        // umbra
+  uniform vec3 uPenumbra;     // partial shadow
+  uniform float uOpacity;     // umbra
+  uniform float uPenumbraOpacity;
   uniform float uReveal;
   uniform float uSoftness;
   varying vec2 vUv;
   varying vec4 vFeather;
   varying float vDepth;
   varying float vReveal;
+  varying float vTier;
   varying vec2 vWorld;
 
   float edgeAlpha(vec2 uv, vec4 f, float soft) {
@@ -62,17 +65,44 @@ const FRAGMENT = /* glsl */ `
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
 
+  // 4x4 ordered dither, so the half-light reads as a screen of light.
+  float bayer4(vec2 p) {
+    vec2 f = floor(mod(p, 4.0));
+    int x = int(f.x);
+    int y = int(f.y);
+    int index = x + y * 4;
+    float m[16];
+    m[0] = 0.0;  m[1] = 8.0;  m[2] = 2.0;  m[3] = 10.0;
+    m[4] = 12.0; m[5] = 4.0;  m[6] = 14.0; m[7] = 6.0;
+    m[8] = 3.0;  m[9] = 11.0; m[10] = 1.0; m[11] = 9.0;
+    m[12] = 15.0; m[13] = 7.0; m[14] = 13.0; m[15] = 5.0;
+    float v = 0.0;
+    for (int i = 0; i < 16; i++) {
+      if (i == index) v = m[i];
+    }
+    return v / 16.0;
+  }
+
   void main() {
-    float a = edgeAlpha(vUv, vFeather, uSoftness);
-    // Darker near the caster, softer and lighter toward the far end.
+    bool penumbra = vTier > 1.5;
+    float soft = penumbra ? uSoftness * 1.9 : uSoftness;
+    float a = edgeAlpha(vUv, vFeather, soft);
     a *= mix(1.0, 0.62, clamp(vDepth, 0.0, 1.0));
-    // The sweep: tiles reveal in order of distance from their caster.
     a *= smoothstep(vReveal, vReveal + 0.2, uReveal);
-    // A whisper of grain so the shadow is not a flat vector fill.
     a *= 0.93 + 0.07 * hash(floor(vWorld * 2.5));
-    a *= uOpacity;
+
+    vec3 col;
+    if (penumbra) {
+      // Stipple: roughly half the pixels lighten, so the tier is unmistakable.
+      float d = bayer4(vWorld * 4.0);
+      a *= uPenumbraOpacity * mix(0.35, 1.0, d);
+      col = mix(uPenumbra, uPenumbra * 1.1, clamp(vDepth, 0.0, 1.0));
+    } else {
+      a *= uOpacity;
+      col = mix(uColor, uColor * 1.18, clamp(vDepth, 0.0, 1.0));
+    }
+
     if (a < 0.004) discard;
-    vec3 col = mix(uColor, uColor * 1.18, clamp(vDepth, 0.0, 1.0));
     gl_FragColor = vec4(col, a);
   }
 `;
@@ -85,10 +115,6 @@ const CONTACT_VERTEX = /* glsl */ `
   }
 `;
 
-const FLOOR_SHADOW_Y = 0.018;
-/** Above the low-stone mesh (0.119 tall) so its shadow is never hidden. */
-const STONE_SHADOW_Y = 0.135;
-
 const CONTACT_FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
   uniform float uOpacity;
@@ -100,6 +126,10 @@ const CONTACT_FRAGMENT = /* glsl */ `
     gl_FragColor = vec4(uColor, a);
   }
 `;
+
+const FLOOR_SHADOW_Y = 0.018;
+/** Above the low-stone mesh (0.119 tall) so its decal is never hidden. */
+const STONE_SHADOW_Y = 0.135;
 
 export class ShadowRenderer {
   readonly group = new THREE.Group();
@@ -125,9 +155,11 @@ export class ShadowRenderer {
       side: THREE.DoubleSide,
       uniforms: {
         uColor: { value: new THREE.Color(0x161c2b) },
+        uPenumbra: { value: new THREE.Color(0x5a6377) },
         uOpacity: { value: 0.56 },
+        uPenumbraOpacity: { value: 0.4 },
         uReveal: { value: 1.2 },
-        uSoftness: { value: 0.2 },
+        uSoftness: { value: 0.18 },
       },
     });
     this.material.toneMapped = false;
@@ -151,7 +183,7 @@ export class ShadowRenderer {
     this.group.add(this.contactMesh);
   }
 
-  /** Static contact occlusion around walls and casters. Rebuilt per level. */
+  /** Static contact occlusion around casters. Rebuilt per level. */
   buildContact(board: Board, theme: Theme, layout: WorldLayout): void {
     this.layout = layout;
     this.contactMaterial.uniforms.uColor.value.set(theme.shadow);
@@ -171,15 +203,12 @@ export class ShadowRenderer {
         [wx - h, wz + h],
       ];
       const order = [0, 1, 2, 0, 2, 3];
-      for (const index of order) {
-        positions.push(quad[index][0], 0.014, quad[index][1]);
-      }
+      for (const index of order) positions.push(quad[index][0], 0.014, quad[index][1]);
       uvs.push(0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1);
     };
 
     // Only isolated casters get a soft contact pool; walls are handled as a
-    // per-tile ambient-occlusion tint by the board renderer, which avoids
-    // overlapping pools along a wall run.
+    // per-tile ambient-occlusion tint by the board renderer.
     for (const caster of board.casters) {
       const world = gridToWorld(layout, caster.position.x, caster.position.y);
       add(world.x, world.z, caster.kind === "pillar" ? 1.5 : 1.2);
@@ -193,43 +222,59 @@ export class ShadowRenderer {
     this.contactGeometry.computeBoundingSphere();
   }
 
-  applyInstant(board: Board, sun: Direction, theme: Theme, layout: WorldLayout): void {
+  applyInstant(
+    board: Board,
+    sun: Direction,
+    theme: Theme,
+    layout: WorldLayout,
+    rules: Rules,
+  ): void {
     this.layout = layout;
-    this.build(board, sun, theme);
+    this.build(board, sun, theme, rules);
     this.material.uniforms.uReveal.value = 1.4;
     this.animating = false;
     this.elapsed = 0;
   }
 
-  sweep(board: Board, sun: Direction, theme: Theme, duration = 0.42): void {
+  sweep(
+    board: Board,
+    sun: Direction,
+    theme: Theme,
+    duration = 0.42,
+    rules: Rules = "umbra",
+  ): void {
     this.duration = duration;
-    this.build(board, sun, theme);
+    this.build(board, sun, theme, rules);
     this.material.uniforms.uReveal.value = -0.25;
     this.elapsed = 0;
     this.animating = true;
   }
 
-  private build(board: Board, sun: Direction, theme: Theme): void {
+  private build(board: Board, sun: Direction, theme: Theme, rules: Rules): void {
     this.material.uniforms.uColor.value.set(theme.shadow);
     this.material.uniforms.uOpacity.value = theme.shadowOpacity;
+    this.material.uniforms.uPenumbra.value.set(theme.penumbraShadow);
+    this.material.uniforms.uPenumbraOpacity.value = theme.penumbraOpacity;
     this.material.uniforms.uSoftness.value = 0.18;
 
-    const depths = computeShadowDepths(board, sun);
+    const field = computeIlluminationDepths(board, sun, rules);
     let maxDepth = 1;
-    for (const depth of depths.values()) maxDepth = Math.max(maxDepth, depth);
+    for (const tile of field.values()) maxDepth = Math.max(maxDepth, tile.depth);
 
     const positions: number[] = [];
     const feather: number[] = [];
     const uv: number[] = [];
     const depthAttr: number[] = [];
     const revealAttr: number[] = [];
+    const tierAttr: number[] = [];
 
-    for (const decal of selectShadowDecals(board, depths)) {
+    for (const decal of selectShadowDecals(board, field)) {
       const world = gridToWorld(this.layout, decal.x, decal.y);
-      const f = shadowFeather(depths, decal.x, decal.y, sun);
+      const f = shadowFeather(field, decal.x, decal.y, sun);
       // Low stones get their decal raised onto the stone's top surface.
       const y = decal.stone ? STONE_SHADOW_Y : FLOOR_SHADOW_Y;
       const normalizedDepth = Math.min(1, decal.depth / maxDepth);
+      const tier = decal.tier === "penumbra" ? 2 : 1;
       const corners = [
         [world.x - 0.5, world.z - 0.5, 0, 0],
         [world.x + 0.5, world.z - 0.5, 1, 0],
@@ -244,6 +289,7 @@ export class ShadowRenderer {
         feather.push(f[0], f[1], f[2], f[3]);
         depthAttr.push(normalizedDepth);
         revealAttr.push(normalizedDepth);
+        tierAttr.push(tier);
       }
     }
 
@@ -257,6 +303,7 @@ export class ShadowRenderer {
     geometry.setAttribute("aFeather", new THREE.Float32BufferAttribute(feather, 4));
     geometry.setAttribute("aDepth", new THREE.Float32BufferAttribute(depthAttr, 1));
     geometry.setAttribute("aReveal", new THREE.Float32BufferAttribute(revealAttr, 1));
+    geometry.setAttribute("aTier", new THREE.Float32BufferAttribute(tierAttr, 1));
     geometry.computeBoundingSphere();
     this.geometry = geometry;
 

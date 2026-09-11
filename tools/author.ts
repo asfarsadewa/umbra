@@ -19,7 +19,7 @@
  *   #########
  */
 import { readFileSync } from "node:fs";
-import { computeShadows } from "../src/game/shadows";
+import { computeIlluminationDepths } from "../src/game/shadows";
 import { replay, solve } from "../src/game/Solver";
 import { resolveTurn } from "../src/game/TurnResolver";
 import { Direction, GameState, posKey } from "../src/game/types";
@@ -30,18 +30,34 @@ const ARROW: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←
 
 function parseCandidate(text: string): LevelDefinition {
   const map: string[] = [];
+  const entities: LevelDefinition["entities"] = [];
   const definition: Partial<LevelDefinition> = {
     id: "candidate",
     name: "Candidate",
   };
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/\s+$/, "");
-    const match = /^(id|name|sun|daylight|chapter|par)\s+(.+)$/i.exec(line.trim());
-    if (match && map.length === 0) {
+    const match = /^(id|name|sun|daylight|chapter|par|rules|entity)\s+(.+)$/i.exec(line.trim());
+    if (match) {
       const key = match[1].toLowerCase();
       const value = match[2].trim();
+      if (key === "entity") {
+        const [kind, x, y] = value.split(/\s+/);
+        entities.push({
+          kind: kind.startsWith("w") ? "wraith" : "shade",
+          x: Number(x),
+          y: Number(y),
+        });
+        continue;
+      }
+      if (map.length > 0) {
+        // Header-ish text after the map is a map row in progress; keep reading.
+        map.push(line);
+        continue;
+      }
       if (key === "sun") definition.startingSun = value.toUpperCase() as Direction;
       else if (key === "daylight") definition.daylight = Number(value);
+      else if (key === "rules") definition.rules = value.toLowerCase() as "umbra" | "penumbra";
       else if (key === "par") definition.par = Number(value);
       else if (key === "chapter") definition.chapter = value;
       else if (key === "id") definition.id = value;
@@ -59,26 +75,29 @@ function parseCandidate(text: string): LevelDefinition {
     height: map.length,
     startingSun: definition.startingSun ?? "N",
     map,
+    entities: entities.length > 0 ? entities : undefined,
   } as LevelDefinition;
 }
 
 function render(state: GameState, title: string): string {
-  const shadows = computeShadows(state.board, state.sun);
+  const field = computeIlluminationDepths(state.board, state.sun, state.rules);
   const rows: string[] = [];
   for (let y = 0; y < state.height; y++) {
     let row = "";
     for (let x = 0; x < state.width; x++) {
       const tile = state.board.tileAt(x, y);
       const caster = state.board.casterAt(x, y);
-      const shade = state.shades.find(
+      const entity = state.shades.find(
         (s) => !s.buried && s.position.x === x && s.position.y === y,
       );
-      if (shade) row += "S";
+      const lit = field.get(posKey({ x, y }));
+      if (entity) row += entity.kind === "wraith" ? "W" : "S";
       else if (caster) row += caster.kind === "pillar" ? "P" : "L";
       else if (tile === "Wall") row += "#";
       else if (tile === "Void") row += "~";
       else if (tile === "Grave") row += "G";
-      else if (shadows.has(posKey({ x, y }))) row += "░";
+      else if (lit?.tier === "umbra") row += "▓";
+      else if (lit?.tier === "penumbra") row += "░";
       else row += ".";
     }
     rows.push(row);
@@ -86,7 +105,7 @@ function render(state: GameState, title: string): string {
   const buried = state.shades.filter((s) => s.buried).length;
   const header = [
     title,
-    `sun ${state.sun} ${ARROW[state.sun]}   turn ${state.turn}   buried ${buried}/${state.shades.length}   daylight ${state.daylight ?? "∞"}`,
+    `sun ${state.sun} ${ARROW[state.sun]}   turn ${state.turn}   buried ${buried}/${state.shades.length}   daylight ${state.daylight ?? "∞"}   rules ${state.rules}`,
   ];
   return [...header, ...rows].join("\n");
 }
@@ -132,15 +151,25 @@ function main(): void {
   if (inlineDaylight >= 0) definition.daylight = Number(process.argv[inlineDaylight + 1]);
 
   const start = loadLevel(definition);
+
+  if (process.argv.includes("--field")) {
+    for (const sun of ["N", "E", "S", "W"] as Direction[]) {
+      console.log(render({ ...start, sun }, `— ${definition.id} field, sun ${sun} —`));
+      console.log("");
+    }
+    return;
+  }
   console.log(render(start, `— start — ${definition.id} ${definition.name}`));
 
   const solution = solve(start, { maxDepth: definition.daylight ?? 60 });
   if (!solution) {
-    console.log("\n✘ UNSOLVABLE within the daylight budget");
-    process.exit(1);
+    console.log(`${definition.id} UNSOLVABLE within the daylight budget`);
+    process.exitCode = 1;
+    return;
   }
 
-  console.log(`\n✔ minimum ${solution.moves} turns: ${solution.path.join(" → ")}\n`);
+  console.log(`minimum ${solution.moves}: ${solution.path.join(" ")}`);
+  if (process.argv.includes("--quiet")) return;
 
   let state = start;
   for (let i = 0; i < solution.path.length; i++) {

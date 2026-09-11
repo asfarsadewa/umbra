@@ -48,6 +48,7 @@ export class Renderer {
   private running = false;
   private theme: Theme = getTheme("shadow");
   private mode: "title" | "game" = "game";
+  private currentState: GameState | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -129,6 +130,7 @@ export class Renderer {
 
   loadLevel(state: GameState): void {
     this.mode = "game";
+    this.currentState = state;
     this.titleScene.setVisible(false);
     this.setGameVisible(true);
     this.animationManager.reset();
@@ -250,6 +252,16 @@ export class Renderer {
 
   applyInstant(state: GameState): void {
     this.animationManager.applyInstant(state);
+  }
+
+  /**
+   * Repaint the current courtyard with the three-tier illumination model, so the
+   * first softening of the shadow edge happens in-world (Penumbra spec §28).
+   */
+  revealPenumbra(): void {
+    const state = this.currentState;
+    if (!state) return;
+    this.shadowRenderer.sweep(state.board, state.sun, this.theme, 1.4, "penumbra");
   }
 
   /** Cosmetic feedback for a rejected input (never happens for the sun, but kept). */

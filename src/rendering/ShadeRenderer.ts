@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GameState, Position, ShadeState } from "../game/types";
 import { AssetLoader, styleModel } from "./AssetLoader";
+import { EntityKind } from "../game/types";
 import { gridPositionToWorld, WorldLayout } from "./coords";
 import { Theme } from "./themes";
 
@@ -59,6 +60,7 @@ export class ShadeRenderer {
   private assets: AssetLoader | null = null;
   private readonly bodyMaterial: THREE.MeshStandardMaterial;
   private readonly smokeMaterial: THREE.SpriteMaterial;
+  private readonly wraithSmokeMaterial: THREE.SpriteMaterial;
   private readonly contactMaterial: THREE.MeshBasicMaterial;
   private readonly geometry: THREE.BufferGeometry[] = [];
   private readonly texture: THREE.Texture;
@@ -78,6 +80,13 @@ export class ShadeRenderer {
       color: 0x2a2b33,
       transparent: true,
       opacity: 0.28,
+      depthWrite: false,
+    });
+    this.wraithSmokeMaterial = new THREE.SpriteMaterial({
+      map: this.texture,
+      color: 0xc8d8f0,
+      transparent: true,
+      opacity: 0.22,
       depthWrite: false,
     });
     this.contactMaterial = new THREE.MeshBasicMaterial({
@@ -102,26 +111,38 @@ export class ShadeRenderer {
   private createShade(shade: ShadeState): void {
     const root = new THREE.Group();
     const body = new THREE.Group();
-    const model = this.assets?.instance("princess") ?? null;
+    const kind: EntityKind = shade.kind ?? "shade";
+    const model = this.assets?.instance(kind === "wraith" ? "wraith" : "princess") ?? null;
 
     let mixer: THREE.AnimationMixer | null = null;
     let idleAction: THREE.AnimationAction | null = null;
     let walkAction: THREE.AnimationAction | null = null;
 
     if (model) {
-      const tint = new THREE.Color(this.theme?.character ?? 0xffffff);
+      const isWraith = kind === "wraith";
+      const tint = new THREE.Color(
+        isWraith ? (this.theme?.wraith ?? 0xffffff) : (this.theme?.character ?? 0xffffff),
+      );
       const sink: THREE.Material[] = [];
       styleModel(
         model,
         (material) => {
           material.color.multiply(tint);
           material.metalness = 0;
-          material.roughness = 0.62;
+          material.roughness = isWraith ? 0.45 : 0.62;
+          if (isWraith) {
+            // Half-lit: faintly luminous and slightly translucent.
+            material.transparent = true;
+            material.opacity = 0.94;
+            material.emissive = new THREE.Color(this.theme?.wraithGlow ?? 0xbcd4ff);
+            material.emissiveIntensity = 0.18;
+            material.depthWrite = true;
+          }
         },
         sink,
       );
       body.add(model);
-      const clips = this.assets?.animations("princess") ?? [];
+      const clips = this.assets?.animations(kind === "wraith" ? "wraith" : "princess") ?? [];
       const idleClip = THREE.AnimationClip.findByName(clips, "idle");
       const walkClip = THREE.AnimationClip.findByName(clips, "walk");
       if (idleClip || walkClip) {
@@ -143,9 +164,11 @@ export class ShadeRenderer {
 
     root.add(body);
 
+    const smokeMaterial =
+      kind === "wraith" ? this.wraithSmokeMaterial : this.smokeMaterial;
     const smoke: SmokePuff[] = [];
     for (let i = 0; i < 3; i++) {
-      const sprite = new THREE.Sprite(this.smokeMaterial);
+      const sprite = new THREE.Sprite(smokeMaterial);
       sprite.position.set(0, 0.4, 0);
       sprite.scale.setScalar(0.34);
       root.add(sprite);
@@ -306,6 +329,7 @@ export class ShadeRenderer {
     this.texture.dispose();
     this.bodyMaterial.dispose();
     this.smokeMaterial.dispose();
+    this.wraithSmokeMaterial.dispose();
     this.contactMaterial.dispose();
   }
 }

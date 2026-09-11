@@ -29,8 +29,9 @@ Play: **https://umbra.asfarlab.fun**
 You are never moving the Shades directly. You are choosing which shadow corridor exists
 this turn.
 
-The campaign has **18 handcrafted levels** across five chapters, all solver-verified.
-Progress, best turn counts and settings are saved to `localStorage`.
+UMBRA contains an **18-level core campaign**. Completing level 018 finishes the main journey
+and unlocks optional postgame challenges. Progress, best turn counts and settings are saved
+to `localStorage`.
 
 | Chapter | Levels | Teaches |
 | --- | --- | --- |
@@ -39,6 +40,44 @@ Progress, best turn counts and settings are saved to `localStorage`.
 | III · Procession | 009–012 | several Shades, one global input |
 | IV · Short Stones | 013–015 | low stones and their one-tile shadows |
 | V · Eclipse | 016–018 | everything, plus the sunset limit |
+
+### Postgame
+
+Level 018 is the end of the journey, not the limit of its rules. Completing it opens two
+optional branches; neither is required to consider UMBRA finished, and the campaign always
+reads **18 / 18**.
+
+| Branch | Levels | Promise |
+| --- | --- | --- |
+| **Deep Umbra** | U019–U023 | *Nothing new. Only harder.* The original rules, pushed as far as they go. |
+| **Penumbra** | P001–P005 | *Enter the half-light.* The illumination model itself changes. |
+
+**Deep Umbra** adds no mechanic. Every puzzle uses tall pillars, low stones, Shades,
+reusable graves, simultaneous movement and sunset — the difficulty comes purely from
+geometry, ordering and optimisation. It has no fixed ceiling: more levels can be added
+without revoking anyone's completion, because progress is tracked per level id.
+
+**Penumbra** splits shadow into three illumination states:
+
+```text
+LIGHT      fully illuminated
+PENUMBRA   partial shadow - the boundary
+UMBRA      full shadow
+```
+
+A tall pillar casts a two-tile dark core; beyond that the ray becomes partial shadow, and
+the boundary also spreads one tile sideways from every step of the ray (the fringe). Where
+fringes meet, a Wraith can turn a corner. Two entity kinds then read the same sun
+differently:
+
+```text
+SHADE    moves one tile away from the sun, only into UMBRA
+WRAITH   moves one tile away from the sun, only into PENUMBRA
+```
+
+One sun change can therefore open a route for a Shade and close one for a Wraith, in the
+same turn. Penumbra is deliberately a short, experimental branch: five levels, and it grows
+only if the mechanic earns it.
 
 ---
 
@@ -172,6 +211,7 @@ gpt-image-2.5-sunburst  →  fal Hunyuan 3D 3.1 Pro  →  Blender prep/rig  → 
 | File | Kind | Preparation |
 | --- | --- | --- |
 | `princess.glb` | rigged character | 16k tris, 14-bone rig, `idle` + `walk` clips, 0.9 units tall |
+| `wraith.glb` | rigged character | 14k tris, same rig, `idle` + `walk` clips, 0.86 units tall (Penumbra) |
 | `pillar.glb` | static prop | 6k tris, bleached limestone column, PBR |
 | `stone.glb` | static prop | 4k tris, low slab, fitted to 0.95 tiles wide |
 | `grave.glb` | static prop | 6k tris, carved funerary seal, flattened to a shallow ring |
@@ -194,7 +234,7 @@ python "$CODEX_HOME/skills/.system/imagegen/scripts/image_gen.py" generate-batch
   --output-format png --no-augment --concurrency 3
 
 # 2. image -> 3D (fal Hunyuan 3.1 Pro, paid), resumable
-for name in princess pillar title stone grave rubble cypress bush; do
+for name in princess wraith pillar title stone grave rubble cypress bush; do
   python "$CODEX_HOME/skills/image-to-3d/scripts/hunyuan_3d.py" generate \
     --image "output/imagegen/refs/$name.png" --name "$name" --out-dir output/3d --pbr
 done
@@ -271,13 +311,15 @@ A second suite (`tests/guarantees.test.ts`) locks the determinism guarantees the
 - **Deep-copy integrity** — mutating a clone (positions, buried flags, turn, sun, tiles)
   cannot touch the original, which is what makes snapshot undo safe.
 
-It also pins the **shadow-visibility invariant**: for every level and every sun, each tile
-a Shade may enter *because it is shadowed* has a visible shadow decal. That includes low
-stones, which are traversable and are regularly covered by another caster's ray (the pillar
-directly beneath the Shade in *The Lattice* throws a long shadow north through the stone
-row). Tall pillars are skipped — they are impassable, so a shadow there carries no
-information — and the decal on a low stone is raised onto the stone's top surface so the
-mesh cannot hide it.
+A separate `tests/postgame.test.ts` covers the half-light model: illumination determinism,
+the tier gradient along a pillar's ray, that both tiers occur in every Penumbra level, that
+a Wraith refuses full shadow and light while a Shade refuses partial shadow, key stability
+across entity kinds, and postgame progress being tracked per level id.
+
+It also pins the **illumination-visibility invariant**: for every level, every sun and both
+rule sets, each tile an entity may enter *because of its illumination* is drawn with exactly
+that illumination — full shadow, partial shadow, or (for low stones) raised onto the stone's
+top surface so the mesh cannot hide it. Tall pillars are skipped, being impassable.
 
 ---
 

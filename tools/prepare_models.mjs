@@ -29,6 +29,7 @@ const REVIEW = resolve(ROOT, "output", "3d", "review");
  */
 const MODELS = [
   { name: "princess", height: 0.9, tris: 16000, yaw: 90, rig: true, texture: 512 },
+  { name: "wraith", height: 0.86, tris: 14000, yaw: 90, rig: true, texture: 512 },
   { name: "pillar", height: 1.75, tris: 6000, yaw: 0, texture: 512 },
   { name: "title", height: 2.6, tris: 12000, yaw: 90, texture: 512 },
   { name: "stone", fit: "width", width: 0.95, tris: 4000, yaw: 0, texture: 512 },

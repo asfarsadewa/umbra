@@ -44,6 +44,38 @@ export const OPPOSITE: Record<Direction, Direction> = {
 
 export type TileType = "Floor" | "Wall" | "Void" | "Grave";
 
+/**
+ * Which illumination model a level uses.
+ *
+ *  "umbra"    — the original rule: a tile is either lit or fully shadowed.
+ *  "penumbra" — three tiers: light / penumbra / umbra (postgame).
+ */
+export type Rules = "umbra" | "penumbra";
+
+/** The three illumination states of the Penumbra model. */
+export type Illumination = "light" | "penumbra" | "umbra";
+
+/**
+ * A Shade moves only into full shadow; a Wraith moves only into partial
+ * shadow. Both always move one tile away from the sun.
+ */
+export type EntityKind = "shade" | "wraith";
+
+const ILLUMINATION_RANK: Record<Illumination, number> = {
+  light: 0,
+  penumbra: 1,
+  umbra: 2,
+};
+
+export function strongestIllumination(a: Illumination, b: Illumination): Illumination {
+  return ILLUMINATION_RANK[a] >= ILLUMINATION_RANK[b] ? a : b;
+}
+
+/** The illumination an entity needs on its destination tile. */
+export function requiredIllumination(kind: EntityKind): Illumination {
+  return kind === "wraith" ? "penumbra" : "umbra";
+}
+
 export type CasterKind = "pillar" | "stone";
 
 /** A static object that casts a logical shadow. */
@@ -54,6 +86,7 @@ export interface Caster {
 
 export interface ShadeState {
   id: string;
+  kind: EntityKind;
   position: Position;
   /** True once the Shade has entered a grave. Kept so undo can restore it. */
   buried: boolean;
@@ -67,6 +100,8 @@ export interface GameState {
   levelId: string;
   levelName: string;
   chapter: string;
+  /** Illumination model for this level. */
+  rules: Rules;
   par?: number;
   width: number;
   height: number;

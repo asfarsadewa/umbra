@@ -1,0 +1,25 @@
+{
+  "id": "P003",
+  "name": "Between",
+  "chapter": "penumbra",
+  "par": 7,
+  "rules": "penumbra",
+  "width": 9,
+  "height": 9,
+  "startingSun": "S",
+  "map": [
+    "#########",
+    "#.......#",
+    "#.......#",
+    "#.......#",
+    "#.....P.#",
+    "#.......#",
+    "#...P...#",
+    "#LLLLG..#",
+    "#########"
+  ],
+  "entities": [
+    { "kind": "wraith", "x": 5, "y": 4 },
+    { "kind": "shade", "x": 1, "y": 7 }
+  ]
+}

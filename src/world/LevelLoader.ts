@@ -1,8 +1,10 @@
 import {
   Caster,
   Direction,
+  EntityKind,
   GameState,
   Position,
+  Rules,
   ShadeState,
   TileType,
 } from "../game/types";
@@ -13,6 +15,7 @@ import {
   PILLAR_CHAR,
   SHADE_CHAR,
   STONE_CHAR,
+  WRAITH_CHAR,
   tileFromChar,
 } from "./Tile";
 
@@ -42,10 +45,12 @@ export function loadLevel(definition: LevelDefinition): GameState {
       } else if (char === STONE_CHAR) {
         row.push("Floor");
         casters.push({ kind: "stone", position: { x, y } });
-      } else if (char === SHADE_CHAR) {
+      } else if (char === SHADE_CHAR || char === WRAITH_CHAR) {
         row.push("Floor");
+        const kind: EntityKind = char === WRAITH_CHAR ? "wraith" : "shade";
         shades.push({
-          id: `s${shades.length + 1}`,
+          id: `${kind[0]}${shades.length + 1}`,
+          kind,
           position: { x, y },
           buried: false,
           colorIndex: shades.length,
@@ -62,6 +67,24 @@ export function loadLevel(definition: LevelDefinition): GameState {
 
   const board = new Board(width, height, tiles, casters);
 
+  if (definition.entities) {
+    for (const entity of definition.entities) {
+      const kind: EntityKind = entity.kind ?? "shade";
+      if (!board.canShadeEnter(entity.x, entity.y)) {
+        throw new Error(
+          `Level ${definition.id}: entity on impassable tile at ${entity.x},${entity.y}`,
+        );
+      }
+      shades.push({
+        id: `${kind[0]}${shades.length + 1}`,
+        kind,
+        position: { x: entity.x, y: entity.y },
+        buried: false,
+        colorIndex: shades.length,
+      });
+    }
+  }
+
   if (shades.length === 0) {
     throw new Error(`Level ${definition.id}: no Shades`);
   }
@@ -76,8 +99,10 @@ export function loadLevel(definition: LevelDefinition): GameState {
     }
   }
   for (const shade of shades) {
-    if (board.casterAt(shade.position.x, shade.position.y)) {
-      throw new Error(`Level ${definition.id}: Shade inside a caster`);
+    // A low stone is a slab an entity may stand on (stone-rail puzzles rely on
+    // it); only a tall pillar is genuinely solid.
+    if (board.isPillar(shade.position.x, shade.position.y)) {
+      throw new Error(`Level ${definition.id}: entity inside a pillar`);
     }
   }
 
@@ -85,6 +110,7 @@ export function loadLevel(definition: LevelDefinition): GameState {
     levelId: definition.id,
     levelName: definition.name,
     chapter: definition.chapter ?? "shadow",
+    rules: (definition.rules ?? "umbra") as Rules,
     par: definition.par,
     width,
     height,

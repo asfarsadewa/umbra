@@ -6,13 +6,13 @@ import { computeShadows } from "../src/game/shadows";
 import { replay, solve } from "../src/game/Solver";
 import { isSolved, resolveTurn } from "../src/game/TurnResolver";
 import { DIRECTIONS, GameState } from "../src/game/types";
-import { LEVELS } from "../src/levels/index";
+import { ALL_LEVELS } from "../src/levels/index";
 import { LevelDefinition } from "../src/world/Level";
 import { loadLevel } from "../src/world/LevelLoader";
 import { stateSignature } from "../src/game/GameState";
 import { manualState } from "./helpers";
 
-const CAMPAIGN = LEVELS as LevelDefinition[];
+const CAMPAIGN = ALL_LEVELS as LevelDefinition[];
 
 /* ------------------------------------------------------------------ *
  * 1. The simulation cannot become nondeterministic.
@@ -168,17 +168,24 @@ describe("chained waiting", () => {
  * Built from scratch rather than reusing `stateSignature`, so an omission in the
  * production key cannot hide inside it. It carries every mutable field plus the
  * full board, so it is strictly finer: its minimum can only be >= production's.
+ *
+ * `turn` is deliberately absent: no mechanic reads it, and including it would
+ * make the search space depth-dependent for no benefit (the bisimulation test
+ * covers turn-irrelevance directly).
  */
 const overCompleteKey = (state: GameState): string =>
   JSON.stringify({
     sun: state.sun,
     shades: state.shades
-      .map((shade) => (shade.buried ? "X" : `${shade.position.x},${shade.position.y}`))
+      .map(
+        (e) =>
+          `${e.kind}:${e.buried ? "X" : `${e.position.x},${e.position.y}`}`,
+      )
       .sort(),
-    buried: state.shades.filter((shade) => shade.buried).length,
+    buried: state.shades.filter((e) => e.buried).length,
     daylight: state.daylight,
-    turn: state.turn,
     status: state.status,
+    rules: state.rules,
     board: state.board.tiles,
     casters: state.board.casters.map(
       (caster) => `${caster.kind}:${caster.position.x},${caster.position.y}`,
@@ -327,8 +334,8 @@ describe("shadow/state decoupling", () => {
     });
     const b = cloneState(a);
     b.shades = [
-      { id: "s1", position: { x: 5, y: 5 }, buried: false, colorIndex: 0 },
-      { id: "s2", position: { x: 0, y: 3 }, buried: true, colorIndex: 1 },
+      { id: "s1", kind: "shade", position: { x: 5, y: 5 }, buried: false, colorIndex: 0 },
+      { id: "s2", kind: "wraith", position: { x: 0, y: 3 }, buried: true, colorIndex: 1 },
     ];
     b.turn = 7;
     for (const sun of DIRECTIONS) {

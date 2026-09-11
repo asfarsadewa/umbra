@@ -1,0 +1,22 @@
+{
+  "id": "P002",
+  "name": "Half-Light",
+  "chapter": "penumbra",
+  "par": 6,
+  "rules": "penumbra",
+  "width": 9,
+  "height": 9,
+  "startingSun": "E",
+  "map": [
+    "#########",
+    "#.......#",
+    "#.......#",
+    "#.......#",
+    "#G....P.#",
+    "#.......#",
+    "#...P...#",
+    "#.......#",
+    "#########"
+  ],
+  "entities": [{ "kind": "wraith", "x": 5, "y": 4 }]
+}

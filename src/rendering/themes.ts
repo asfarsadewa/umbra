@@ -48,6 +48,13 @@ export interface Theme {
   /** Colour of the logical (authoritative) shadow overlay. */
   shadow: number;
   shadowOpacity: number;
+  /** Partial shadow: lighter and stippled, so it never reads as full shadow. */
+  penumbraShadow: number;
+  penumbraOpacity: number;
+
+  /** Multiply tint for the Wraith model (1.0 = authored colours). */
+  wraith: number;
+  wraithGlow: number;
 
   dust: number;
   sunMarker: number;
@@ -83,6 +90,10 @@ const shadow: Theme = {
   sunIntensity: 2.15,
   shadow: 0x161c2b,
   shadowOpacity: 0.56,
+  penumbraShadow: 0x46506a,
+  penumbraOpacity: 0.46,
+  wraith: 0x7f92b8,
+  wraithGlow: 0xbcd4ff,
   dust: 0xffeac6,
   sunMarker: 0xffdf9c,
   sunMarkerGlow: 0xffb347,
@@ -166,6 +177,10 @@ const eclipse: Theme = {
   sunIntensity: 1.95,
   shadow: 0x0d0a10,
   shadowOpacity: 0.6,
+  penumbraShadow: 0x6a4a34,
+  penumbraOpacity: 0.48,
+  wraith: 0xd8a878,
+  wraithGlow: 0xffb066,
   dust: 0xffcf9a,
   sunMarker: 0xffb066,
   sunMarkerGlow: 0xff7b2e,

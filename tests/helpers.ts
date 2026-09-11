@@ -32,6 +32,7 @@ export interface ManualOptions {
   casters?: Caster[];
   tile?: (x: number, y: number) => TileType;
   daylight?: number | null;
+  rules?: "umbra" | "penumbra";
 }
 
 export function manualState(options: ManualOptions): GameState {
@@ -53,8 +54,10 @@ export function manualState(options: ManualOptions): GameState {
     height: options.height,
     board,
     sun: options.sun ?? "N",
+    rules: options.rules ?? "umbra",
     shades: options.shades.map((shade, index) => ({
       id: shade.id ?? `s${index + 1}`,
+      kind: shade.kind ?? "shade",
       position: { x: shade.x, y: shade.y },
       buried: shade.buried ?? false,
       colorIndex: index,

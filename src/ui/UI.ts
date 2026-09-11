@@ -11,10 +11,18 @@ import { GateHandlers, renderGateScreen } from "./GateScreen";
 import { renderLevelSelect } from "./LevelSelect";
 import { SaveData } from "./SaveManager";
 import { renderTitleScreen, TitleOptions } from "./TitleScreen";
+import {
+  PostgameHandlers,
+  PostgamePanelOptions,
+  renderCampaignComplete,
+  renderPenumbraIntro,
+  renderPostgamePanel,
+} from "./Postgame";
 
 export interface UIHandlers extends PanelHandlers {
   onSelectLevel: (index: number) => void;
   onResetProgress: () => void;
+  onPostgame: () => void;
 }
 
 const SUN_GLYPH: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←" };
@@ -33,6 +41,7 @@ export class UI {
   private turnCount: HTMLElement;
   private parCount: HTMLElement;
   private hint: HTMLElement;
+  private legendNode: HTMLElement;
   private toastNode: HTMLElement;
   private undoButton: HTMLButtonElement | null;
   private muteButton: HTMLButtonElement | null;
@@ -55,6 +64,7 @@ export class UI {
     this.turnCount = this.require("turn-count");
     this.parCount = this.require("par-count");
     this.hint = this.require("hint");
+    this.legendNode = this.require("legend");
     this.toastNode = this.require("toast");
     this.undoButton = document.getElementById("undo-button") as HTMLButtonElement | null;
     this.muteButton = document.getElementById("mute-button") as HTMLButtonElement | null;
@@ -72,8 +82,8 @@ export class UI {
     return !this.overlay.classList.contains("hidden");
   }
 
-  setLevel(index: number, state: GameState, definition?: LevelDefinition): void {
-    this.levelNumber.textContent = String(index + 1).padStart(2, "0");
+  setLevel(label: string, state: GameState, definition?: LevelDefinition): void {
+    this.levelNumber.textContent = label;
     this.levelName.textContent = state.levelName;
     this.daylightTotal = definition?.daylight ?? state.daylight ?? null;
     this.setStateHud(state);
@@ -105,6 +115,37 @@ export class UI {
 
   setHint(visible: boolean): void {
     this.hint.classList.toggle("visible", visible);
+  }
+
+  /**
+   * A wordless key for which illumination each entity needs. Shown only when a
+   * level actually contains both kinds, so it never adds noise.
+   */
+  setLegend(kinds: string[]): void {
+    const hasShade = kinds.includes("shade");
+    const hasWraith = kinds.includes("wraith");
+    if (!hasWraith) {
+      this.legendNode.classList.remove("visible");
+      this.legendNode.replaceChildren();
+      return;
+    }
+    const rows: HTMLElement[] = [];
+    if (hasShade) rows.push(this.legendRow("shade", "full shadow"));
+    rows.push(this.legendRow("wraith", "half-light"));
+    this.legendNode.replaceChildren(...rows);
+    this.legendNode.classList.add("visible");
+  }
+
+  private legendRow(kind: "shade" | "wraith", label: string): HTMLElement {
+    const row = document.createElement("span");
+    row.className = `legend-row legend-${kind}`;
+    const swatch = document.createElement("span");
+    swatch.className = "legend-swatch";
+    const text = document.createElement("span");
+    text.className = "legend-text";
+    text.textContent = `${kind === "shade" ? "Shade" : "Wraith"} · ${label}`;
+    row.append(swatch, text);
+    return row;
   }
 
   setUndoEnabled(enabled: boolean): void {
@@ -152,12 +193,17 @@ export class UI {
     this.show(renderPausePanel(this.handlers, this.activeCamera), this.handlers.onResume);
   }
 
-  showLevelSelect(levels: LevelDefinition[], save: SaveData): void {
+  showLevelSelect(
+    allLevels: LevelDefinition[],
+    campaignCount: number,
+    save: SaveData,
+  ): void {
     this.show(
-      renderLevelSelect(levels, save, {
+      renderLevelSelect(allLevels, campaignCount, save, {
         onSelect: this.handlers.onSelectLevel,
         onClose: this.handlers.onResume,
         onReset: this.handlers.onResetProgress,
+        onPostgame: this.handlers.onPostgame,
       }),
       this.handlers.onResume,
     );
@@ -244,12 +290,55 @@ export class UI {
     window.requestAnimationFrame(() => button?.focus());
   }
 
+  /**
+   * The core-campaign ending and the postgame choice. Full-screen, like the
+   * title; it is deliberately not a "next level" prompt.
+   */
+  showCampaignComplete(handlers: PostgameHandlers): void {
+    this.escapeAction = handlers.onReturn;
+    this.overlay.classList.add("postgame-mode");
+    document.body.classList.add("postgame-mode");
+    this.panelHost.replaceChildren(renderCampaignComplete(handlers));
+    this.overlay.classList.remove("hidden");
+    this.openedAt = performance.now();
+    this.onVisibilityChange?.(true);
+    this.fadeInOverlay();
+    window.requestAnimationFrame(() => this.focusFirst());
+  }
+
+  /** The half-light reveal, then straight into Penumbra. Auto-dismisses. */
+  showPenumbraIntro(onDone: () => void, hold = 2600): void {
+    this.escapeAction = null;
+    this.overlay.classList.add("postgame-mode");
+    document.body.classList.add("postgame-mode");
+    this.panelHost.replaceChildren(renderPenumbraIntro());
+    this.overlay.classList.remove("hidden");
+    this.openedAt = performance.now();
+    this.onVisibilityChange?.(true);
+    this.fadeInOverlay();
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wait = reduce ? 900 : hold;
+    window.setTimeout(() => {
+      this.overlay.classList.add("leaving");
+    }, wait);
+    window.setTimeout(() => {
+      this.overlay.classList.remove("postgame-mode", "leaving");
+      document.body.classList.remove("postgame-mode");
+      onDone();
+    }, wait + (reduce ? 120 : 700));
+  }
+
+  showPostgame(options: PostgamePanelOptions): void {
+    this.show(renderPostgamePanel(options), options.handlers.onReturn);
+  }
+
   hideOverlay(): void {
     this.escapeAction = null;
     this.overlay.style.opacity = "";
     this.overlay.classList.add("hidden");
-    this.overlay.classList.remove("title-mode");
-    document.body.classList.remove("title-mode");
+    this.overlay.classList.remove("title-mode", "postgame-mode", "leaving");
+    document.body.classList.remove("title-mode", "postgame-mode");
     this.onVisibilityChange?.(false);
     (document.activeElement as HTMLElement | null)?.blur?.();
   }

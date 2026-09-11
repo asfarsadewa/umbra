@@ -5,12 +5,14 @@ export interface TitleHandlers {
   onContinue: () => void;
   onBegin: () => void;
   onChapters: () => void;
+  onPostgame: () => void;
   onToggleMute: () => void;
   onSetCamera: (id: CameraPresetId) => void;
 }
 
 export interface TitleOptions {
   hasProgress: boolean;
+  postgameUnlocked: boolean;
   muted: boolean;
   camera: CameraPresetId;
   handlers: TitleHandlers;
@@ -83,6 +85,9 @@ export function renderTitleScreen(options: TitleOptions): HTMLElement {
     links.append(action("Begin anew", "link", options.handlers.onBegin), dot());
   }
   links.append(action("Chapters", "link", options.handlers.onChapters), dot());
+  if (options.postgameUnlocked) {
+    links.append(action("Postgame", "link title-postgame", options.handlers.onPostgame), dot());
+  }
   links.append(
     action(
       options.muted ? "Sound: off" : "Sound: on",

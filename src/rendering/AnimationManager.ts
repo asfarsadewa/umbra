@@ -69,7 +69,7 @@ export class AnimationManager {
       this.turn = null;
     }
     this.sunRig.setImmediate(state.sun);
-    this.shadows.applyInstant(state.board, state.sun, this.theme, this.layout);
+    this.shadows.applyInstant(state.board, state.sun, this.theme, this.layout, state.rules);
     this.shades.syncInstant(state);
     this.applyGrounding(state);
   }
@@ -86,7 +86,7 @@ export class AnimationManager {
 
     const sweepDuration = this.sweepDuration;
     this.sunRig.sweepTo(next.sun, sweepDuration);
-    this.shadows.sweep(next.board, next.sun, this.theme, sweepDuration);
+    this.shadows.sweep(next.board, next.sun, this.theme, sweepDuration, next.rules);
 
     const tweens: Tween[] = [];
     for (const shade of next.shades) {

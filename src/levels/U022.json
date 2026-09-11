@@ -1,0 +1,25 @@
+{
+  "id": "U022",
+  "name": "No Waste",
+  "chapter": "deep",
+  "par": 9,
+  "daylight": 9,
+  "width": 9,
+  "height": 9,
+  "startingSun": "S",
+  "map": [
+    "#########",
+    "#.......#",
+    "#LLLLLG.#",
+    "#LL.....#",
+    "#LL.....#",
+    "#LL.....#",
+    "#LL.....#",
+    "#.......#",
+    "#########"
+  ],
+  "entities": [
+    { "kind": "shade", "x": 1, "y": 6 },
+    { "kind": "shade", "x": 2, "y": 6 }
+  ]
+}
