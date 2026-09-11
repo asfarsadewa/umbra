@@ -18,7 +18,8 @@
     "music": "node tools/generate_music.mjs",
     "og": "python tools/make_og_card.py",
     "deploy": "npm run build && wrangler deploy",
-    "deploy:preview": "npm run build && wrangler versions upload"
+    "deploy:preview": "npm run build && wrangler versions upload",
+    "social": "node tools/check_social.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",

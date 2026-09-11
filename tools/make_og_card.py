@@ -5,8 +5,9 @@ deterministic typography.
     python tools/make_og_card.py
 
 Input:  output/imagegen/og-backdrop.png
-Output: public/og-card.png          (1200x630)
-        public/og-card-square.png   (1080x1080)
+Output: public/og-card.jpg          (1200x630, JPEG for scrapers)
+        public/og-card-square.jpg   (1080x1080)
+        output/og-card.png          (lossless master)
         public/icons/{512,192,apple-touch,32}
 """
 
@@ -17,9 +18,10 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BACKDROP = os.path.join(ROOT, "output", "imagegen", "og-backdrop.png")
-OUT = os.path.join(ROOT, "public", "og-card.png")
-OUT_SQUARE = os.path.join(ROOT, "public", "og-card-square.png")
+BACKDROP = os.path.join(ROOT, "output", "imagegen", "og-backdrop-princess.png")
+MASTER = os.path.join(ROOT, "output", "og-card.png")
+OUT = os.path.join(ROOT, "public", "og-card.jpg")
+OUT_SQUARE = os.path.join(ROOT, "public", "og-card-square.jpg")
 ICON_DIR = os.path.join(ROOT, "public", "icons")
 
 GEORGIA = "C:/Windows/Fonts/georgia.ttf"
@@ -28,7 +30,7 @@ GEORGIA_ITALIC = "C:/Windows/Fonts/georgiai.ttf"
 
 INK = (242, 233, 214, 255)
 DIM = (196, 186, 164, 255)
-FAINT = (150, 140, 120, 255)
+FAINT = (188, 176, 152, 255)
 GOLD = (232, 180, 90, 255)
 
 
@@ -82,10 +84,17 @@ def render(size) -> Image.Image:
     # Left-to-right darkening so the type always reads.
     gradient = Image.new("RGBA", (width, 1), (0, 0, 0, 0))
     for x in range(width):
-        t = max(0.0, 1.0 - x / (width * 0.66))
-        gradient.putpixel((x, 0), (7, 6, 4, int(240 * (t ** 1.3))))
-    shade = gradient.resize((width, height))
-    canvas = Image.alpha_composite(canvas, shade)
+        t = max(0.0, 1.0 - x / (width * 0.7))
+        gradient.putpixel((x, 0), (7, 6, 4, int(250 * (t ** 1.12))))
+    canvas = Image.alpha_composite(canvas, gradient.resize((width, height)))
+
+    # A soft band under the footer labels, which otherwise sit on bright paving.
+    band = Image.new("RGBA", (1, height), (0, 0, 0, 0))
+    for y in range(height):
+        t = max(0.0, (y / height - 0.7) / 0.3)
+        band.putpixel((0, y), (6, 5, 3, int(185 * (t ** 1.2))))
+    canvas = Image.alpha_composite(canvas, band.resize((width, height)))
+
     canvas = vignette(canvas)
 
     draw = ImageDraw.Draw(canvas)
@@ -226,8 +235,13 @@ def make_icon(size: int) -> Image.Image:
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     os.makedirs(ICON_DIR, exist_ok=True)
-    render((1200, 630)).save(OUT, "PNG", optimize=True)
-    render((1080, 1080)).save(OUT_SQUARE, "PNG", optimize=True)
+    card = render((1200, 630))
+    # Ship a JPEG: it keeps the card well under the ~300 KB that some scrapers
+    # (notably WhatsApp) prefer. The lossless master is kept in output/.
+    os.makedirs(os.path.dirname(MASTER), exist_ok=True)
+    card.save(MASTER, "PNG", optimize=True)
+    card.save(OUT, "JPEG", quality=92, optimize=True, progressive=True)
+    render((1080, 1080)).save(OUT_SQUARE, "JPEG", quality=92, optimize=True)
     for size, name in (
         (512, "icon-512.png"),
         (192, "icon-192.png"),
@@ -235,6 +249,7 @@ def main():
         (32, "favicon-32.png"),
     ):
         make_icon(size).save(os.path.join(ICON_DIR, name), "PNG", optimize=True)
+    print("wrote", MASTER)
     print("wrote", OUT)
     print("wrote", OUT_SQUARE)
     print("wrote", ICON_DIR)

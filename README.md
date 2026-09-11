@@ -212,7 +212,7 @@ convention. The result is also recorded in `output/3d/review/<name>/facing.json`
 
 ```bash
 npm run music     # Lyria 3.5 (Gemini API) -> public/audio/{title,vigil}.mp3
-npm run og        # key art + Pillow typography -> og-card.png + icons
+npm run og        # key art + Pillow typography -> og-card.jpg + icons
 ```
 
 The share card composes a generated key-art backdrop with real typography (Georgia), so
@@ -232,6 +232,7 @@ npm run smoke      # headless Chrome smoke test (needs a preview server)
 npm run models     # prepare/rig the GLBs from the newest Hunyuan runs (Blender)
 npm run music      # regenerate ambient tracks (GEMINI_API_KEY)
 npm run og         # regenerate the social card and icons
+npm run social     # audit the deployed OG/Twitter/JSON-LD metadata
 npm run deploy     # build + wrangler deploy to umbra.asfarlab.fun
 ```
 
