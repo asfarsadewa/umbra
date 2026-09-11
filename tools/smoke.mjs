@@ -441,6 +441,8 @@ async function main() {
   // Penumbra: the half-light reveal, then P001 with a Wraith.
   await evaluate(`window.umbra.startLevel(window.umbra.levelById("018"))`);
   await delay(400);
+  // Force the first-time path so the half-light reveal itself is exercised.
+  await evaluate(`(() => { window.umbra.save.data.seenPostgameChoice = false; })()`);
   await evaluate(`window.umbra.enterPenumbra()`);
   await delay(1400);
   const penumbraIntro = await evaluate(`(() => ({
