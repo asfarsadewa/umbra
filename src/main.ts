@@ -44,8 +44,8 @@ const INTRO_LINES: Record<string, string> = {
 const save = new SaveManager();
 const audio = new AudioManager();
 
-function musicRequest(name: "title" | "vigil" | "penumbra") {
-  const volume = name === "title" ? 0.42 : name === "vigil" ? 0.28 : 0.26;
+function musicRequest(name: "title" | "vigil") {
+  const volume = name === "title" ? 0.42 : 0.28;
   return {
     name,
     url: `${import.meta.env.BASE_URL}audio/${name}.mp3`,
@@ -123,7 +123,8 @@ function startLevel(index: number, options: { announce?: boolean } = {}): void {
   ui.setUndoEnabled(false);
   ui.hideOverlay();
   input.setEnabled(true);
-  audio.playMusic(musicRequest(section === "penumbra" ? "penumbra" : "vigil"), 2);
+  audio.setAmbience(section === "penumbra" ? "penumbra" : "umbra");
+  audio.playMusic(musicRequest("vigil"), 2);
 
   const showHint = definition.id === "001" && !save.data.hasMovedSun;
   ui.setHint(showHint);
@@ -174,6 +175,7 @@ function resumeIndex(): number {
 function showTitleScreen(): void {
   audio.unlock();
   audio.setDucked(false);
+  audio.setAmbience("umbra");
   renderer.showTitle();
   ui.setHint(false);
   audio.playMusic(musicRequest("title"));
@@ -251,7 +253,8 @@ function showCampaignComplete(): void {
 /** The half-light reveal, then P001. */
 function enterPenumbra(): void {
   audio.setDucked(false);
-  audio.playMusic(musicRequest("penumbra"), 1.2);
+  audio.setAmbience("penumbra");
+  audio.playMusic(musicRequest("vigil"), 1.2);
   const go = () => {
     const base = ALL_LEVELS.indexOf(PENUMBRA_LEVELS[0]);
     const firstUnsolved = PENUMBRA_LEVELS.findIndex(
@@ -330,7 +333,8 @@ function doRestart(): void {
   ui.hideOverlay();
   input.setEnabled(true);
   const section = sectionOf(ALL_LEVELS[currentIndex]);
-  audio.playMusic(musicRequest(section === "penumbra" ? "penumbra" : "vigil"), 1.2);
+  audio.setAmbience(section === "penumbra" ? "penumbra" : "umbra");
+  audio.playMusic(musicRequest("vigil"), 1.2);
 }
 
 function handleGameEvent(event: GameEvent): void {

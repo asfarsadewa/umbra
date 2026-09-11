@@ -14,6 +14,11 @@ export class AudioManager {
   private master: GainNode | null = null;
   private ambientGain: GainNode | null = null;
   private ambientNodes: AudioScheduledSourceNode[] = [];
+  private windGain: GainNode | null = null;
+  private windFilter: BiquadFilterNode | null = null;
+  private droneOscs: OscillatorNode[] = [];
+  private droneGains: GainNode[] = [];
+  private ambience: "umbra" | "penumbra" = "umbra";
   private music = new Map<
     string,
     { el: HTMLAudioElement; gain: GainNode; source: MediaElementAudioSourceNode }
@@ -153,6 +158,8 @@ export class AudioManager {
       windGain.connect(this.ambientGain);
       source.start();
       this.ambientNodes.push(source);
+      this.windGain = windGain;
+      this.windFilter = filter;
 
       const gust = this.ctx.createOscillator();
       gust.frequency.value = 0.06;
@@ -179,7 +186,33 @@ export class AudioManager {
       gain.connect(this.ambientGain);
       osc.start();
       this.ambientNodes.push(osc);
+      this.droneOscs.push(osc);
+      this.droneGains.push(gain);
     }
+    this.applyAmbience();
+  }
+
+  /**
+   * Penumbra is an epilogue, not a new production: rather than a second
+   * soundtrack it thins the existing bed — a higher drone and more air.
+   */
+  setAmbience(mode: "umbra" | "penumbra"): void {
+    this.ambience = mode;
+    this.applyAmbience();
+  }
+
+  private applyAmbience(): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const penumbra = this.ambience === "penumbra";
+    const freqs = penumbra ? [110, 164.81] : [55, 82.5];
+    for (let i = 0; i < this.droneOscs.length; i++) {
+      this.droneOscs[i].frequency.setTargetAtTime(freqs[i] ?? 55, now, 1.2);
+      this.droneGains[i]?.gain.setTargetAtTime(penumbra ? 0.1 : 0.18, now, 1.2);
+    }
+    this.windGain?.gain.setTargetAtTime(penumbra ? 0.34 : 0.5, now, 1.2);
+    this.windFilter?.frequency.setTargetAtTime(penumbra ? 780 : 420, now, 1.2);
+    this.ambientGain?.gain.setTargetAtTime(penumbra ? 0.038 : 0.05, now, 1.2);
   }
 
   private tone(options: {

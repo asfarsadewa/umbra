@@ -30,6 +30,11 @@ const TRACKS = [
       "Ancient, quiet, ritualistic instrumental theme for a puzzle game set in a sun-bleached Mediterranean ruin. A low sustained stone drone, a single distant resonant bell, dry wind over sand, a barely-there wooden flute. Vast negative space, no percussion. Instrumental only, absolutely no vocals and no lyrics. Slow, lonely, melancholic, loopable. About 90 seconds.",
   },
   {
+    name: "penumbra",
+    prompt:
+      "Extremely thin, airy instrumental ambient for an epilogue about the edge of shadow. Almost nothing: a very high faint sine drone, a slow beating harmonic between two close tones, wide breathy air, one distant soft chime every so often. No melody, no rhythm, no percussion, no bass. Instrumental only, absolutely no vocals and no lyrics. Cold, spacious, liminal, loopable. About two minutes.",
+  },
+  {
     name: "vigil",
     prompt:
       "Very sparse instrumental ambient for patient puzzle solving at high noon. Almost no melody: a deep warm drone, the faintest breath of wind, occasional soft stone resonance, one distant low chime. Immense stillness and space. Instrumental only, absolutely no vocals and no lyrics, no drums, no rhythm. Extremely minimal and loopable. About two minutes.",
