@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#14110d" />
+    <meta name="color-scheme" content="dark" />
+    <title>Umbra — you move the sun</title>
+
+    <meta
+      name="description"
+      content="A tiny deterministic puzzle game. You don't move the dead — you move the sun. Rotate it around ancient ruins, reshaping shadows that guide the Shades toward their graves."
+    />
+    <link rel="canonical" href="https://umbra.asfarlab.fun/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Umbra" />
+    <meta property="og:title" content="Umbra" />
+    <meta
+      property="og:description"
+      content="You don't move the dead. You move the sun. A tiny deterministic puzzle game of shadow geometry."
+    />
+    <meta property="og:url" content="https://umbra.asfarlab.fun/" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://umbra.asfarlab.fun/og-card.png" />
+    <meta property="og:image:secure_url" content="https://umbra.asfarlab.fun/og-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A lone dark shade shelters in the long shadow of a pillar across a bleached stone courtyard, with the wordmark UMBRA."
+    />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@ashthepeasant" />
+    <meta name="twitter:creator" content="@ashthepeasant" />
+    <meta name="twitter:title" content="Umbra" />
+    <meta name="twitter:description" content="You don't move the dead. You move the sun." />
+    <meta name="twitter:image" content="https://umbra.asfarlab.fun/og-card.png" />
+    <meta
+      name="twitter:image:alt"
+      content="A lone shade sheltering in a pillar's shadow across a sunlit ruin."
+    />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Umbra" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="application-name" content="Umbra" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Umbra",
+        "description": "A deterministic puzzle game where you rotate the sun around ancient ruins, reshaping shadows that guide the dead toward their graves.",
+        "url": "https://umbra.asfarlab.fun/",
+        "image": "https://umbra.asfarlab.fun/og-card.png",
+        "author": {
+          "@type": "Person",
+          "name": "@ashthepeasant",
+          "url": "https://x.com/ashthepeasant"
+        },
+        "genre": "Puzzle",
+        "applicationCategory": "Game",
+        "gamePlatform": "Web browser",
+        "operatingSystem": "Any",
+        "playMode": "SinglePlayer",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="scene" aria-label="Game board"></div>
+
+      <header id="hud">
+        <div class="hud-group">
+          <span class="hud-mark">UMBRA</span>
+          <span id="level-number" class="hud-number">01</span>
+          <span id="level-name" class="hud-name">First Shade</span>
+        </div>
+        <div class="hud-group hud-sun">
+          <span id="sun-indicator" class="sun-indicator">☀ S ↓</span>
+        </div>
+        <div class="hud-group hud-right">
+          <span class="hud-label">DAYLIGHT</span>
+          <span id="daylight" class="hud-daylight">—</span>
+          <span class="hud-label hud-turns-label">TURNS</span>
+          <span id="turn-count" class="hud-number">0</span>
+          <span id="par-count" class="hud-par"></span>
+        </div>
+      </header>
+
+      <div id="hint" class="hint" role="status" aria-live="polite">MOVE THE SUN</div>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <div id="loading" class="loading">
+        <div class="loading-mark"></div>
+        <p class="loading-text">Warming the stone…</p>
+      </div>
+
+      <div id="touch-controls" aria-label="Sun controls">
+        <button class="compass compass-n" data-sun="N" aria-label="Sun north">▲</button>
+        <button class="compass compass-w" data-sun="W" aria-label="Sun west">◀</button>
+        <span class="compass compass-core" aria-hidden="true">☀</span>
+        <button class="compass compass-e" data-sun="E" aria-label="Sun east">▶</button>
+        <button class="compass compass-s" data-sun="S" aria-label="Sun south">▼</button>
+      </div>
+
+      <footer id="controls">
+        <button id="undo-button" data-action="undo">Undo</button>
+        <button data-action="restart">Restart</button>
+        <button id="mute-button" data-action="mute" class="active">Sound</button>
+        <button data-action="menu">Menu</button>
+      </footer>
+
+      <div id="overlay" class="overlay hidden">
+        <div id="overlay-panel" class="panel"></div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
