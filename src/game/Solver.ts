@@ -11,6 +11,12 @@ export interface Solution {
 export interface SolveOptions {
   maxDepth?: number;
   forbidden?: Set<string>;
+  /**
+   * Visited-set key. Defaults to the production `stateSignature`. Tests pass an
+   * over-complete key to prove the production one never merges states that
+   * behave differently (which would silently corrupt the reported minimum).
+   */
+  key?: (state: GameState) => string;
 }
 
 /** Replay a sun-direction sequence from a fresh clone. */
@@ -42,10 +48,11 @@ export function solve(
   let maxDepth = options.maxDepth ?? 60;
   if (start.daylight !== null) maxDepth = Math.min(maxDepth, start.daylight);
   const forbidden = options.forbidden ?? new Set<string>();
+  const keyOf = options.key ?? stateSignature;
 
   if (isSolved(start)) return { moves: 0, path: [] };
 
-  const startKey = stateSignature(start);
+  const startKey = keyOf(start);
   const visited = new Set<string>([startKey]);
   const parent = new Map<string, { prev: string; sun: Direction } | null>();
   parent.set(startKey, null);
@@ -58,10 +65,10 @@ export function solve(
       for (const sun of DIRECTIONS) {
         const result = resolveTurn(current, sun);
         if (result.status === "sunset") continue;
-        const key = stateSignature(result);
+        const key = keyOf(result);
         if (visited.has(key) || forbidden.has(key)) continue;
         visited.add(key);
-        parent.set(key, { prev: stateSignature(current), sun });
+        parent.set(key, { prev: keyOf(current), sun });
         if (isSolved(result)) {
           return { moves: depth + 1, path: rebuild(parent, key) };
         }

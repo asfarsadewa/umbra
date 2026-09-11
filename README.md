@@ -246,6 +246,31 @@ cancellation, swap prevention, grave entry and reuse, multiple Shades, sunset, u
 deterministic replay, signature stability, and the whole campaign (every level solvable,
 every authored par equal to the true minimum, every solution inside its daylight budget).
 
+A second suite (`tests/guarantees.test.ts`) locks the determinism guarantees themselves:
+
+- **Simulation purity, asserted not assumed** — a static scan of `src/game` and `src/world`
+  fails if `Math.random`, `Date`, `performance`, timers, `crypto`, DOM globals, or any
+  `three`/rendering/ui/input/audio import ever appears. The rules can no longer "become"
+  nondeterministic without the build going red.
+- **Order independence** — permuting the Shades array leaves `resolveTurn` bit-identical.
+- **Repeated input** — choosing the same sun again is a legal, turn-consuming move.
+- **Chained waiting** — a blocked Shade holds the one behind it (through the full turn,
+  not just the collision unit).
+- **Key soundness** — every level is solved twice, once with the production visited key and
+  once with an over-complete key built from scratch (full board, casters, daylight, turn);
+  the minima must agree, so the production key is not silently pruning a shorter route.
+- **Key bisimulation** — reachable states that share a signature must respond identically to
+  all four suns; a signature that merges differing behaviour fails the suite.
+- **Field-by-field signature check** — the key must distinguish every mutable dimension
+  (sun, each Shade position, each buried flag, every daylight value including unlimited),
+  while happily merging states that are genuinely interchangeable (two Shades swapping
+  places, or a different `turn`).
+- **Independent minimality** — a depth-limited exhaustive walk with **no visited set at all**
+  proves no solution shorter than `par` exists for every level with `par <= 8`, so par is not
+  merely self-consistent with the solver.
+- **Deep-copy integrity** — mutating a clone (positions, buried flags, turn, sun, tiles)
+  cannot touch the original, which is what makes snapshot undo safe.
+
 It also pins the **shadow-visibility invariant**: for every level and every sun, each tile
 a Shade may enter *because it is shadowed* has a visible shadow decal. That includes low
 stones, which are traversable and are regularly covered by another caster's ray (the pillar
